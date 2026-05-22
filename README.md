@@ -8,7 +8,7 @@ For ADHD brains. (Made by one.)
 
 You enter a small bedroom-studio. It's late. The lamp is warm. Rain on the window. A small companion drifts by the desk.
 
-When something is heavy, you gather a wisp — and a *tiny first step* appears. Then you leave. Do the thing (or don't). Come back whenever. The room stayed warm for you.
+When something is heavy, you gather a wisp and place it somewhere warm: the lamp, the plant, or the window. The room changes first. A tiny first step is optional after that. Then you leave. Do the thing (or don't). Come back whenever. The room stayed warm for you.
 
 The reward is **state improvement**, not task completion. The room calms with you. The companion stays.
 
@@ -23,14 +23,15 @@ No streaks. No daily goals. No "you missed N quests." No XP. No leveling. No pus
 
 ## Status
 
-v0.2 — the room exists, low-poly, with the gather mechanic working end-to-end.
+v0.4 — the room is now a toy first, tiny-step tool second.
 
 - Wisps drift through the room with real physics (cannon.js)
-- Tap a wisp → it gets pulled toward the companion
-- When the wisp reaches the companion, it dissolves into a *tiny first step*
-- A new wisp respawns elsewhere in the room
+- Drag a wisp into the lamp → the lamp warms
+- Drag a wisp into the plant → the plant stretches and a seed appears
+- Drag a wisp into the window → the rain softens and the room clears
+- After the room reacts, the companion may offer an optional *tiny step*
 
-Next: real LLM-driven tiny quests (Anthropic API instead of the hardcoded pool), state engine that actually moves with player action, persistent state across "world sleeps while you act" sessions.
+Next: stronger object personalities, real LLM-driven tiny steps (Anthropic API instead of the hardcoded pool), state engine that actually moves with player action, persistent state across "world sleeps while you act" sessions.
 
 ## Stack
 
