@@ -23,13 +23,19 @@ No streaks. No daily goals. No "you missed N quests." No XP. No leveling. No pus
 
 ## Status
 
-v0.1 — the room exists. No interaction yet. Just sit in it.
+v0.2 — the room exists, low-poly, with the gather mechanic working end-to-end.
 
-Next: the gather mechanic. Wisps drifting toward the companion → tiny quests.
+- Wisps drift through the room with real physics (cannon.js)
+- Tap a wisp → it gets pulled toward the companion
+- When the wisp reaches the companion, it dissolves into a *tiny first step*
+- A new wisp respawns elsewhere in the room
+
+Next: real LLM-driven tiny quests (Anthropic API instead of the hardcoded pool), state engine that actually moves with player action, persistent state across "world sleeps while you act" sessions.
 
 ## Stack
 
-- **Three.js r128** — 3D scene + post-processing (bloom, grain, vignette)
+- **Three.js r128** — 3D scene, low-poly flat-shaded, post-processing (bloom, grain, vignette)
+- **cannon.js 0.6.2** — lightweight 3D physics (wisp drift, soft attraction to companion, gentle gravity)
 - **Anthropic API** — light LLM assistance for task-classification → tiny-quest generation (planned)
 - **Supabase** — state persistence across the "world sleeps while you act" loop (planned)
 - **Capacitor.js** — mobile wrap (planned)
