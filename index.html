@@ -27,6 +27,19 @@
   }
   #whisper.show { opacity: 0.85; }
 
+  /* Tap ripple — visual confirmation that the tap registered */
+  .tap-ripple {
+    position: fixed; width: 80px; height: 80px;
+    border-radius: 50%; pointer-events: none; z-index: 7;
+    border: 1px solid rgba(245, 216, 154, 0.55);
+    transform: translate(-50%, -50%) scale(0.2);
+    animation: ripple 700ms ease-out forwards;
+  }
+  @keyframes ripple {
+    0%   { transform: translate(-50%, -50%) scale(0.2); opacity: 0.8; border-width: 2px; }
+    100% { transform: translate(-50%, -50%) scale(1.4); opacity: 0; border-width: 1px; }
+  }
+
   /* Quest action pills — appear under whisper when tiny quest is delivered */
   #quest-actions {
     position: fixed; left: 50%; bottom: 9vh; transform: translateX(-50%);
@@ -543,6 +556,14 @@ function makeWisp(x, y, z, colorHex) {
     })
   );
   group.add(halo);
+  // INVISIBLE generous hitbox — radius ~1.1 units, never rendered.
+  // This is what the raycaster hits so tapping is forgiving.
+  const hitbox = new THREE.Mesh(
+    new THREE.SphereGeometry(1.1, 8, 6),
+    new THREE.MeshBasicMaterial({ visible: false })
+  );
+  hitbox.userData.isHitbox = true;
+  group.add(hitbox);
   // Tiny point light so wisp casts a soft colored glow on nearby surfaces
   const wispLight = new THREE.PointLight(color, 0.4, 2.2, 2);
   group.add(wispLight);
@@ -592,6 +613,26 @@ const pointer = new THREE.Vector2();
 let pulledWisp = null;
 let pullStrength = 0;
 
+function spawnTapRipple(x, y) {
+  const r = document.createElement('div');
+  r.className = 'tap-ripple';
+  r.style.left = x + 'px';
+  r.style.top = y + 'px';
+  document.body.appendChild(r);
+  setTimeout(() => r.remove(), 720);
+}
+
+// Project a 3D point to 2D screen pixels
+const _projVec = new THREE.Vector3();
+function projectToScreen(pos3) {
+  _projVec.copy(pos3).project(camera);
+  return {
+    x: (_projVec.x * 0.5 + 0.5) * window.innerWidth,
+    y: (-_projVec.y * 0.5 + 0.5) * window.innerHeight,
+    z: _projVec.z,  // <1 = in front of camera
+  };
+}
+
 window.addEventListener('pointerdown', (ev) => {
   if (!inRoom) { advanceOnboard(); return; }
   // Ignore taps on quest-action pills — they have their own handlers
@@ -602,15 +643,35 @@ window.addEventListener('pointerdown', (ev) => {
 
   const x = ev.clientX ?? (ev.touches && ev.touches[0].clientX) ?? 0;
   const y = ev.clientY ?? (ev.touches && ev.touches[0].clientY) ?? 0;
+
+  // Always show a ripple — confirms the tap registered, no matter what
+  spawnTapRipple(x, y);
+
+  // First try: 3D raycast on generous hitboxes (radius 1.1)
   pointer.x = (x / window.innerWidth) * 2 - 1;
   pointer.y = -(y / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
-  // Check wisp halos (largest hitbox) for forgiving touch
-  const halos = wisps.map(w => w.group.children[2]).filter(Boolean);
-  const hits = raycaster.intersectObjects(halos, false);
+  const hitboxes = wisps.map(w => w.group.children.find(c => c.userData && c.userData.isHitbox)).filter(Boolean);
+  const hits = raycaster.intersectObjects(hitboxes, false);
+  let chosen = null;
   if (hits.length > 0) {
-    const hit = hits[0].object;
-    pulledWisp = wisps.find(w => w.group.children[2] === hit);
+    chosen = wisps.find(w => w.group.children.includes(hits[0].object));
+  }
+
+  // Fallback: 2D screen-space — find nearest wisp within 120px of tap
+  if (!chosen) {
+    let bestDist = 120;
+    for (const w of wisps) {
+      const sp = projectToScreen(w.group.position);
+      if (sp.z > 1) continue;  // behind camera
+      const dx = sp.x - x, dy = sp.y - y;
+      const d = Math.sqrt(dx*dx + dy*dy);
+      if (d < bestDist) { bestDist = d; chosen = w; }
+    }
+  }
+
+  if (chosen) {
+    pulledWisp = chosen;
     pullStrength = 1.0;
     whisper('mm. that one.', 2500);
   }
