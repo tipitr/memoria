@@ -152,7 +152,13 @@ const scene = new THREE.Scene();
 scene.fog = new THREE.FogExp2(0x06080d, 0.025);
 
 const camera = new THREE.PerspectiveCamera(55, window.innerWidth / window.innerHeight, 0.1, 200);
-camera.position.set(0, 4.5, 11);
+// Camera distance adapts to aspect — pull back on portrait so orb arc fits
+function cameraDistanceForAspect() {
+  const aspect = window.innerWidth / window.innerHeight;
+  // Wide desktop ~1.6 → z 11; tall mobile ~0.46 → z ~15
+  return aspect > 1.2 ? 11 : 11 + (1.2 - aspect) * 6;
+}
+camera.position.set(0, 4.5, cameraDistanceForAspect());
 camera.lookAt(0, 0.5, 0);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
@@ -163,6 +169,7 @@ document.body.appendChild(renderer.domElement);
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth / window.innerHeight;
+  camera.position.z = cameraDistanceForAspect();
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
 });
@@ -354,7 +361,7 @@ const orbObjects = [];
 ORBS.forEach((spec, i) => {
   const orb = makeOrb(spec.color);
   const angle = (i / ORBS.length) * Math.PI * 2 - Math.PI / 2;
-  const r = 2.6;
+  const r = 2.3;
   orb.position.set(Math.cos(angle) * r, 1.2, Math.sin(angle) * r);
   orb.userData.baseY = orb.position.y;
   orb.userData.spec = spec;

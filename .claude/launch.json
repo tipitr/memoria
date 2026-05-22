@@ -1,0 +1,11 @@
+{
+  "version": "0.0.1",
+  "configurations": [
+    {
+      "name": "memoria",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": ["-y", "serve", "-p", "8000", "-L", "."],
+      "port": 8000
+    }
+  ]
+}
