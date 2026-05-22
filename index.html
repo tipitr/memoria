@@ -3,1153 +3,668 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<title>MEMORIA — Memory Runner</title>
+<title>MOMENTUM</title>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 100%; height: 100%; overflow: hidden; background: #04060a; color: #d6dbe4; font-family: 'Iowan Old Style', Georgia, serif; -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; user-select: none; touch-action: none; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #0d0a08; color: #e6d8c0; font-family: 'Iowan Old Style', Georgia, serif; -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; user-select: none; touch-action: none; }
   canvas { display: block; position: fixed; inset: 0; }
 
-  /* HUD layer */
-  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
-
-  /* Light meter — left edge, vertical, fills upward */
-  #light-meter {
-    position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
-    width: 4px; height: 36vh; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden;
-  }
-  #light-meter-fill {
-    position: absolute; bottom: 0; left: 0; right: 0;
-    background: linear-gradient(to top, #e6b86f, #f5d89a);
-    height: 0%; transition: height 0.4s ease;
-    box-shadow: 0 0 14px #e6b86f;
+  /* Subtle vignette overlay (paired with shader vignette for depth) */
+  #vignette {
+    position: fixed; inset: 0;
+    background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.35) 100%);
+    pointer-events: none; z-index: 4;
   }
 
-  /* Shard count — right edge */
-  #shards {
-    position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
-    display: flex; flex-direction: column; gap: 8px;
+  /* Companion whisper line */
+  #whisper {
+    position: fixed; left: 50%; bottom: 10vh; transform: translateX(-50%);
+    font-size: clamp(14px, 2vw, 17px); letter-spacing: 0.04em;
+    color: #e6d8c0; opacity: 0; transition: opacity 1.6s ease;
+    font-style: italic; text-shadow: 0 0 18px rgba(230,184,111,0.25);
+    pointer-events: none; z-index: 5;
   }
-  .shard {
-    width: 10px; height: 10px;
-    border: 1px solid rgba(255,255,255,0.18);
-    transform: rotate(45deg);
-    background: transparent;
-    transition: all 0.5s ease;
-  }
-  .shard.filled {
-    background: #b392e0;
-    border-color: #b392e0;
-    box-shadow: 0 0 12px #b392e0;
-  }
+  #whisper.show { opacity: 0.78; }
 
-  /* ECHO whisper line */
-  #echo {
-    position: absolute;
-    left: 50%; bottom: 12vh; transform: translateX(-50%);
-    font-size: clamp(14px, 2vw, 18px); letter-spacing: 0.05em;
-    color: #c8d1de; opacity: 0; transition: opacity 0.8s ease;
-    font-style: italic; text-shadow: 0 0 18px rgba(120,160,200,0.4);
-    pointer-events: none; white-space: nowrap;
-  }
-  #echo.show { opacity: 0.9; }
-
-  /* Title / start screen */
-  #screen {
-    position: absolute; inset: 0; z-index: 10;
+  /* Title — three softly fading screens, then dissolves into the room */
+  #onboard {
+    position: fixed; inset: 0; z-index: 10;
     display: flex; flex-direction: column; align-items: center; justify-content: center;
-    background: #04060a;
-    transition: opacity 0.8s ease;
-  }
-  #screen.fade { opacity: 0; pointer-events: none; }
-  #screen h1 { font-size: clamp(32px, 6vw, 52px); font-weight: 300; letter-spacing: 0.35em; color: #b8c4d4; margin-bottom: 0.4em; }
-  #screen .sub { font-size: clamp(12px, 1.6vw, 14px); color: #6b7484; letter-spacing: 0.3em; font-style: italic; margin-bottom: 4em; }
-  #screen .cta { font-size: 13px; letter-spacing: 0.35em; color: #a0acba; animation: breathe 1.8s ease-in-out infinite; padding: 14px 36px; border: 1px solid rgba(255,255,255,0.15); border-radius: 999px; }
-  @keyframes breathe { 0%,100% { opacity: 0.45; } 50% { opacity: 1; } }
-
-  /* Soft fail — no punchy black, just gentle dim via vignette */
-  #fail-flash {
-    position: absolute; inset: 0;
-    background: radial-gradient(ellipse at center, transparent 25%, rgba(10,14,22,0.85) 100%);
-    opacity: 0;
-    pointer-events: none; z-index: 8; transition: opacity 0.6s ease;
-  }
-  #fail-flash.show { opacity: 1; }
-  #fail-text {
-    position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
-    font-size: clamp(14px, 1.8vw, 17px); letter-spacing: 0.18em;
-    color: #a0acba; opacity: 0; pointer-events: none; z-index: 9;
-    transition: opacity 0.5s ease; font-style: italic;
-  }
-  #fail-text.show { opacity: 0.7; }
-
-  /* Shard captured banner */
-  #shard-banner {
-    position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
-    text-align: center; opacity: 0; pointer-events: none; z-index: 9;
-    transition: opacity 1s ease; width: 90%; max-width: 500px;
-  }
-  #shard-banner.show { opacity: 1; }
-  #shard-banner .gem { font-size: 56px; color: #b392e0; text-shadow: 0 0 30px #b392e0; line-height: 1; margin-bottom: 16px; }
-  #shard-banner .label { font-size: 14px; letter-spacing: 0.35em; color: #c8d1de; margin-bottom: 24px; }
-  #shard-banner .memory { font-size: clamp(15px, 2.2vw, 19px); color: #e6d8b8; font-style: italic; line-height: 1.6; letter-spacing: 0.02em; min-height: 1.6em; }
-
-  /* Story card — full-screen text overlay between runs / on opening / on close */
-  #story {
-    position: absolute; inset: 0; z-index: 11;
-    background: #04060a;
-    display: flex; flex-direction: column;
-    align-items: center; justify-content: center;
+    background: #0d0a08;
     padding: 0 8vw;
-    opacity: 0; pointer-events: none;
-    transition: opacity 1.4s ease;
+    transition: opacity 1.8s ease;
   }
-  #story.show { opacity: 1; pointer-events: auto; }
-  #story .lines {
-    text-align: center;
-    max-width: 540px;
-  }
-  #story .line {
+  #onboard.fade { opacity: 0; pointer-events: none; }
+  #onboard .lines { text-align: center; max-width: 540px; }
+  #onboard .line {
     display: block;
-    font-size: clamp(16px, 2.6vw, 22px);
-    color: #d6dbe4;
-    line-height: 1.7;
-    letter-spacing: 0.03em;
-    margin: 0.5em 0;
-    opacity: 0;
-    transform: translateY(8px);
-    transition: opacity 1.2s ease, transform 1.2s ease;
+    font-size: clamp(16px, 2.4vw, 21px); line-height: 1.7;
+    color: #e6d8c0; opacity: 0; margin: 0.4em 0;
+    transition: opacity 1.4s ease, transform 1.4s ease;
+    transform: translateY(6px);
+    font-style: italic;
   }
-  #story .line.in { opacity: 0.92; transform: translateY(0); }
-  #story .line.dim { color: #6b7484; font-style: italic; font-size: clamp(13px, 1.8vw, 16px); }
-  #story .line.name {
-    color: #e6b86f; font-size: clamp(20px, 3.2vw, 28px); letter-spacing: 0.18em;
-    margin: 1em 0;
+  #onboard .line.in { opacity: 0.9; transform: translateY(0); }
+  #onboard .line.title {
+    font-style: normal;
+    font-size: clamp(28px, 5vw, 44px);
+    letter-spacing: 0.4em; color: #f5d89a;
+    margin-bottom: 2em;
+    text-shadow: 0 0 24px rgba(245,216,154,0.35);
   }
-  #story .cta {
-    margin-top: 4em; font-size: 12px; letter-spacing: 0.35em; color: #8a93a3;
-    animation: breathe 1.8s ease-in-out infinite;
-    opacity: 0; transition: opacity 1s ease;
+  #onboard .cta {
+    margin-top: 3.5em;
+    font-size: 12px; letter-spacing: 0.35em; color: #8a7a64;
+    opacity: 0; transition: opacity 1.2s ease;
+    animation: breathe 2.2s ease-in-out infinite;
   }
-  #story .cta.in { opacity: 0.8; }
-
-  /* "Watch" / "ready" pill cue — soft, never demanding */
-  #phase-cue {
-    position: absolute; left: 50%; top: 14vh; transform: translateX(-50%);
-    font-size: 10px; letter-spacing: 0.45em; color: #8a93a3;
-    padding: 6px 18px; border: 1px solid rgba(138,147,163,0.18); border-radius: 999px;
-    opacity: 0; transition: opacity 1s ease, color 0.8s ease, border-color 0.8s ease;
-    pointer-events: none; text-transform: lowercase; font-style: italic;
-  }
-  #phase-cue.show { opacity: 0.7; }
-  #phase-cue.play { color: #a8c4d8; border-color: rgba(168,196,216,0.45); box-shadow: 0 0 14px rgba(168,196,216,0.18); }
+  #onboard .cta.in { opacity: 0.8; }
+  @keyframes breathe { 0%,100% { opacity: 0.45; } 50% { opacity: 0.95; } }
 </style>
 </head>
 <body>
 
-<div id="screen">
-  <h1>MEMORIA</h1>
-  <div class="sub">memory runner — chapter i</div>
-  <div class="cta">— tap to run —</div>
+<div id="onboard">
+  <div class="lines" id="onboard-lines"></div>
+  <div class="cta" id="onboard-cta">— tap —</div>
 </div>
 
-<div id="hud">
-  <div id="light-meter"><div id="light-meter-fill"></div></div>
-  <div id="shards"></div>
-  <div id="echo"></div>
-</div>
-<div id="fail-flash"></div>
-<div id="fail-text">slipped.</div>
-<div id="shard-banner">
-  <div class="gem">◆</div>
-  <div class="label">memory captured</div>
-  <div class="memory" id="shard-memory"></div>
-</div>
-
-<div id="story">
-  <div class="lines" id="story-lines"></div>
-  <div class="cta" id="story-cta">— tap to continue —</div>
-</div>
-
-<div id="phase-cue"></div>
+<div id="vignette"></div>
+<div id="whisper"></div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
 <script>
 /* ============================================================
-   MEMORIA — MEMORY RUNNER (Chapter 1: Lethe City)
-   Mechanic: on-rails first-person runner. Sequence flashes
-   in path → reach gate → tap colored orbs in remembered order.
-   Working memory (Barkley, primary) is the only verb.
-   Designed for the nephew test: instant action, fast restart,
-   visible growth, no shame.
+   MOMENTUM v0.1 — The Room
+   A cozy bedroom-studio. Warm lamp, rain on the window, a small
+   companion drifting near the desk. No interaction yet — just
+   be here for a minute and see if the room knows you.
    ============================================================ */
 
-const ORBS = [
-  { name: 'cyan',    color: 0x6fd9e6, freq: 523.25 },
-  { name: 'violet',  color: 0xb392e0, freq: 415.30 },
-  { name: 'emerald', color: 0x7ec894, freq: 329.63 },
-  { name: 'amber',   color: 0xe6b86f, freq: 440.00 },
-  { name: 'rose',    color: 0xe69cb8, freq: 587.33 },
+// ===== Onboarding (3 quiet screens, then we're in the room) =====
+const ONBOARD = [
+  [
+    { text: 'MOMENTUM', title: true },
+    { text: 'this is a room.' },
+    { text: "it's warm." },
+  ],
+  [
+    { text: 'when something is heavy,' },
+    { text: 'gather a wisp.' },
+    { text: 'a tiny first step will appear.' },
+  ],
+  [
+    { text: 'then leave.' },
+    { text: 'live a little.' },
+    { text: 'come back whenever.' },
+  ],
 ];
 
-// ECHO bank — short reactions during run. Soft, curious, never urgent.
-const ECHO = {
-  runStart:   ["...okay.", "ready when you are.", "I'm here."],
-  passShort:  ["yes.", "soft.", "...there.", "mm.", ""],
-  passLong:   ["that's a nice one.", "I like that.", "warm."],
-  fail:       ["...okay.", "no rush.", "again, gently.", "we have time."],
-  shard:      ["oh — hello.", "there you are.", "I knew this one."],
-  hub:        ["a little brighter.", "the street is humming.", "one more, when you want."],
-};
-function pick(arr) { return arr[Math.floor(Math.random()*arr.length)]; }
+let onboardScreen = 0;
+function showOnboardScreen(i) {
+  const lines = document.getElementById('onboard-lines');
+  const cta = document.getElementById('onboard-cta');
+  lines.innerHTML = '';
+  cta.classList.remove('in');
+  ONBOARD[i].forEach((entry) => {
+    const div = document.createElement('div');
+    div.className = 'line';
+    if (entry.title) div.classList.add('title');
+    div.textContent = entry.text;
+    lines.appendChild(div);
+  });
+  const lineEls = lines.querySelectorAll('.line');
+  lineEls.forEach((el, n) => setTimeout(() => el.classList.add('in'), 500 + n * 800));
+  setTimeout(() => cta.classList.add('in'), 500 + lineEls.length * 800 + 600);
+}
+showOnboardScreen(0);
 
-// =====================================================================
-// STORY SCRIPT — Chapter 1: Lethe City
-// Protagonist: "she" (unnamed). Lost person: a close friend (ambiguous).
-// Reveal: their name is Sam. Each shard returns a fragment of memory.
-// =====================================================================
-const STORY = {
-  opening: [
-    { text: "The city forgets things now." },
-    { text: "Most people don't notice.", dim: true },
-    { text: "She does.", dim: false },
-    { text: "" },
-    { text: "Tonight she's looking for someone.", dim: true },
-    { text: "Tonight she remembers how.", dim: false },
-  ],
-  // Mid-run ECHO story lines — companion-curious, never pleading.
-  midRun: [
-    // Run 1 (working toward shard 1)
-    { gate: 2, line: "...I think they're up ahead." },
-    { gate: 4, line: "there's a humming. soft." },
-    // Run 2 (shard 2)
-    { gate: 2, line: "this part feels warm." },
-    { gate: 4, line: "oh — that's a color they liked." },
-    // Run 3 (shard 3)
-    { gate: 2, line: "the street is humming back." },
-    { gate: 4, line: "I think they're near." },
-    // Run 4 (shard 4)
-    { gate: 2, line: "almost. almost their voice." },
-    { gate: 4, line: "you're doing this gently. good." },
-    // Run 5 (shard 5)
-    { gate: 2, line: "yes. there." },
-    { gate: 4, line: "hi. it's you." },
-  ],
-  // Memory line shown on each shard capture — joys, not griefs.
-  shardMemory: [
-    "their name started with an S.",
-    "the song they hummed when no one watched.",
-    "the way they laughed at my bad jokes.",
-    "the warmest day that summer.",
-    "", // shard 5 is the full reveal — handled in closing card
-  ],
-  // Brief between-run line (shown over hub screen)
-  betweenRun: [
-    "one piece. take your time.",
-    "two. she's smiling, I think.",
-    "three. it's coming back warm.",
-    "four. she can almost see them.",
-  ],
-  // Final closing after shard 5
-  closing: [
-    { text: "5 of 5 returned.", dim: true },
-    { text: "" },
-    { text: "Their name is Sam.", name: true },
-    { text: "Not \"was\" — is.", dim: true },
-    { text: "" },
-    { text: "They said: \"I'll see you in the next street.\"" },
-    { text: "And there they are.", dim: false },
-    { text: "" },
-    { text: "tomorrow night — the next street.", dim: true },
-  ],
-};
-
-// Build mid-run lookup: midRun[runIdx][gateIdx] → line
-const MID_RUN_LOOKUP = {};
-STORY.midRun.forEach((entry, i) => {
-  const runIdx = Math.floor(i / 2);
-  if (!MID_RUN_LOOKUP[runIdx]) MID_RUN_LOOKUP[runIdx] = {};
-  MID_RUN_LOOKUP[runIdx][entry.gate] = entry.line;
-});
-
-// ============= Three.js scene =============
+// ===== Three.js — the room =====
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x04060a, 0.045);
+scene.fog = new THREE.FogExp2(0x0e0a08, 0.075);
+scene.background = new THREE.Color(0x0e0a08);
 
-const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 200);
-camera.position.set(0, 1.7, 0);
+const camera = new THREE.PerspectiveCamera(58, window.innerWidth/window.innerHeight, 0.1, 60);
+// Camera looks INTO the room from a slightly-elevated south position
+camera.position.set(0, 1.85, 5.5);
+camera.lookAt(0, 1.4, -2);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.setClearColor(0x04060a, 1);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 0.85;
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
+
+// ===== Lighting =====
+// Very low ambient — almost everything comes from the lamp + window
+scene.add(new THREE.AmbientLight(0x3a2a1a, 0.35));
+
+// Warm lamp — main light source, on the desk
+const lampLight = new THREE.PointLight(0xffb066, 1.6, 10, 1.9);
+lampLight.position.set(1.3, 1.75, -2.2);
+lampLight.castShadow = true;
+lampLight.shadow.mapSize.set(512, 512);
+lampLight.shadow.bias = -0.001;
+scene.add(lampLight);
+
+// Cool moonlight through the window — wide soft fill
+const moonLight = new THREE.DirectionalLight(0x6d8db0, 0.5);
+moonLight.position.set(-3, 4, -4);
+scene.add(moonLight);
+
+// Subtle warm hemisphere for floor bounce
+const hemi = new THREE.HemisphereLight(0xffaa66, 0x1a0e08, 0.25);
+scene.add(hemi);
+
+// ===== Room geometry =====
+const ROOM = new THREE.Group();
+scene.add(ROOM);
+
+// Materials
+const woodMat = new THREE.MeshStandardMaterial({
+  color: 0x4a2c1a, roughness: 0.85, metalness: 0.0,
+});
+const wallMat = new THREE.MeshStandardMaterial({
+  color: 0x3a2e22, roughness: 0.95, metalness: 0.0,
+});
+const ceilMat = new THREE.MeshStandardMaterial({
+  color: 0x1f1812, roughness: 1.0, metalness: 0.0,
+});
+const fabricMat = new THREE.MeshStandardMaterial({
+  color: 0x6a4a32, roughness: 0.9, metalness: 0.0,
+});
+const metalMat = new THREE.MeshStandardMaterial({
+  color: 0x1a1a1a, roughness: 0.4, metalness: 0.7,
+});
+const lampShadeMat = new THREE.MeshStandardMaterial({
+  color: 0xd89a60, roughness: 0.65, metalness: 0.0,
+  emissive: 0xffaa66, emissiveIntensity: 0.55,
+  transparent: true, opacity: 0.95,
+});
+const plantPotMat = new THREE.MeshStandardMaterial({
+  color: 0x5a3826, roughness: 0.9, metalness: 0.0,
+});
+const leafMat = new THREE.MeshStandardMaterial({
+  color: 0x3a5230, roughness: 0.8, metalness: 0.0,
+});
+const glassMat = new THREE.MeshStandardMaterial({
+  color: 0x1a2230, roughness: 0.1, metalness: 0.0,
+  transparent: true, opacity: 0.55,
+});
+
+// Floor
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(10, 10),
+  woodMat
+);
+floor.rotation.x = -Math.PI/2;
+floor.position.y = 0;
+floor.receiveShadow = true;
+ROOM.add(floor);
+
+// Subtle floor planks — emissive lines for plank seams
+for (let i = -2; i <= 2; i++) {
+  const seam = new THREE.Mesh(
+    new THREE.BoxGeometry(10, 0.02, 0.02),
+    new THREE.MeshBasicMaterial({ color: 0x1a0e08, transparent: true, opacity: 0.6 })
+  );
+  seam.position.set(0, 0.011, i * 0.9);
+  ROOM.add(seam);
+}
+
+// Back wall (with window cutout — we'll build it as 4 pieces around the window)
+function makeWall(width, height, depth, x, y, z, mat, rotY = 0) {
+  const w = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), mat);
+  w.position.set(x, y, z);
+  w.rotation.y = rotY;
+  w.receiveShadow = true;
+  ROOM.add(w);
+  return w;
+}
+
+// Back wall pieces (window is 1.8w × 1.6h, centered at x=-1.4, y=1.8)
+const BACK_Z = -3.5;
+// Window position
+const WIN_X = -1.4, WIN_Y = 1.8, WIN_W = 1.8, WIN_H = 1.6;
+
+// Left of window
+makeWall(10/2 - 0.9, 3.6, 0.1, -3.6, 1.8, BACK_Z, wallMat);
+// Right of window (extends far right of room)
+makeWall(10/2 + 0.9, 3.6, 0.1,  1.5, 1.8, BACK_Z, wallMat);
+// Above window
+makeWall(WIN_W, 3.6 - WIN_H - 0.4, 0.1, WIN_X, 1.8 + WIN_H/2 + (3.6 - WIN_H - 0.4)/2 - 0.2, BACK_Z, wallMat);
+// Below window (sill area)
+makeWall(WIN_W, 1.8 - WIN_H/2 - 0.5, 0.1, WIN_X, (1.8 - WIN_H/2 - 0.5)/2, BACK_Z, wallMat);
+
+// Window glass
+const glass = new THREE.Mesh(new THREE.PlaneGeometry(WIN_W, WIN_H), glassMat);
+glass.position.set(WIN_X, WIN_Y, BACK_Z + 0.01);
+ROOM.add(glass);
+
+// Window frame
+const frameMat = new THREE.MeshStandardMaterial({ color: 0x281b10, roughness: 0.9 });
+for (const part of [
+  [WIN_W + 0.1, 0.08, 0.06, WIN_X, WIN_Y + WIN_H/2, BACK_Z + 0.05], // top
+  [WIN_W + 0.1, 0.08, 0.06, WIN_X, WIN_Y - WIN_H/2, BACK_Z + 0.05], // bottom
+  [0.08, WIN_H, 0.06, WIN_X - WIN_W/2, WIN_Y, BACK_Z + 0.05],       // left
+  [0.08, WIN_H, 0.06, WIN_X + WIN_W/2, WIN_Y, BACK_Z + 0.05],       // right
+  [WIN_W, 0.05, 0.06, WIN_X, WIN_Y, BACK_Z + 0.05],                 // horizontal mullion
+  [0.05, WIN_H, 0.06, WIN_X, WIN_Y, BACK_Z + 0.05],                 // vertical mullion
+]) {
+  const [w, h, d, x, y, z] = part;
+  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), frameMat);
+  m.position.set(x, y, z);
+  ROOM.add(m);
+}
+
+// Window sill (small shelf below window)
+const sill = new THREE.Mesh(
+  new THREE.BoxGeometry(WIN_W + 0.3, 0.06, 0.25),
+  frameMat
+);
+sill.position.set(WIN_X, WIN_Y - WIN_H/2 - 0.05, BACK_Z + 0.18);
+ROOM.add(sill);
+
+// Left wall
+makeWall(0.1, 3.6, 8, -5, 1.8, 0, wallMat);
+// Right wall
+makeWall(0.1, 3.6, 8,  5, 1.8, 0, wallMat);
+
+// Ceiling
+const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(10, 10), ceilMat);
+ceiling.rotation.x = Math.PI/2;
+ceiling.position.y = 3.6;
+ROOM.add(ceiling);
+
+// ===== Desk =====
+const desk = new THREE.Group();
+desk.position.set(1.3, 0, -2.6);
+ROOM.add(desk);
+
+// Desk top
+const deskTop = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.08, 1.0), woodMat);
+deskTop.position.y = 1.05;
+deskTop.castShadow = true;
+deskTop.receiveShadow = true;
+desk.add(deskTop);
+// Desk legs (4)
+for (const [lx, lz] of [[-0.9, -0.45], [0.9, -0.45], [-0.9, 0.45], [0.9, 0.45]]) {
+  const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.05, 0.08), woodMat);
+  leg.position.set(lx, 0.525, lz);
+  desk.add(leg);
+}
+
+// ===== Lamp on desk =====
+const lamp = new THREE.Group();
+lamp.position.set(0.4, 1.09, -0.1);
+desk.add(lamp);
+// Base
+const lampBase = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 0.06, 16), metalMat);
+lampBase.position.y = 0.03;
+lamp.add(lampBase);
+// Stem
+const lampStem = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.55, 8), metalMat);
+lampStem.position.y = 0.33;
+lamp.add(lampStem);
+// Shade
+const lampShade = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.32, 24, 1, true), lampShadeMat);
+lampShade.position.y = 0.66;
+lampShade.material.side = THREE.DoubleSide;
+lamp.add(lampShade);
+
+// ===== Plant on desk =====
+const plant = new THREE.Group();
+plant.position.set(-0.7, 1.09, 0.05);
+desk.add(plant);
+const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.10, 0.18, 12), plantPotMat);
+pot.position.y = 0.09;
+plant.add(pot);
+// Leaves — a few overlapping ellipsoids
+for (let i = 0; i < 7; i++) {
+  const angle = (i/7) * Math.PI*2;
+  const r = 0.06 + Math.random()*0.08;
+  const leafGeo = new THREE.SphereGeometry(0.13, 8, 6);
+  leafGeo.scale(0.5, 1.4, 0.4);
+  const leaf = new THREE.Mesh(leafGeo, leafMat);
+  leaf.position.set(Math.cos(angle)*r, 0.28 + Math.random()*0.1, Math.sin(angle)*r);
+  leaf.rotation.set(
+    (Math.random()-0.5)*0.4,
+    angle + Math.random()*0.3,
+    (Math.random()-0.3)*0.5
+  );
+  plant.add(leaf);
+}
+
+// ===== Bed/couch on the left =====
+const bed = new THREE.Group();
+bed.position.set(-3, 0, -1.8);
+ROOM.add(bed);
+// Base
+const bedBase = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.4, 2.6), woodMat);
+bedBase.position.y = 0.2;
+bedBase.castShadow = true;
+bedBase.receiveShadow = true;
+bed.add(bedBase);
+// Mattress / blankets
+const mattress = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.22, 2.55), fabricMat);
+mattress.position.y = 0.51;
+mattress.castShadow = true;
+bed.add(mattress);
+// Pillow
+const pillow = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.15, 0.55), new THREE.MeshStandardMaterial({ color: 0xc8a880, roughness: 0.9 }));
+pillow.position.set(0, 0.7, -0.85);
+bed.add(pillow);
+// Folded blanket at foot
+const blanket = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.12, 0.7), new THREE.MeshStandardMaterial({ color: 0x8a4a32, roughness: 0.9 }));
+blanket.position.set(0, 0.66, 0.85);
+bed.add(blanket);
+
+// Small rug between bed and desk
+const rugGeo = new THREE.PlaneGeometry(2.2, 1.3);
+const rugMat = new THREE.MeshStandardMaterial({
+  color: 0x7a4a30, roughness: 1.0, metalness: 0.0
+});
+const rug = new THREE.Mesh(rugGeo, rugMat);
+rug.rotation.x = -Math.PI/2;
+rug.position.set(-0.5, 0.005, -0.6);
+rug.receiveShadow = true;
+ROOM.add(rug);
+
+// ===== Companion — small floating spirit =====
+const companion = new THREE.Group();
+// Core
+const compColor = new THREE.Color(0xf5d89a);
+const compCore = new THREE.Mesh(
+  new THREE.IcosahedronGeometry(0.12, 1),
+  new THREE.MeshStandardMaterial({
+    color: compColor, emissive: compColor, emissiveIntensity: 2.0, roughness: 0.4
+  })
+);
+companion.add(compCore);
+// Inner glow shell
+const compInner = new THREE.Mesh(
+  new THREE.IcosahedronGeometry(0.22, 1),
+  new THREE.MeshBasicMaterial({ color: compColor, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false })
+);
+companion.add(compInner);
+// Outer glow
+const compOuter = new THREE.Mesh(
+  new THREE.IcosahedronGeometry(0.4, 1),
+  new THREE.MeshBasicMaterial({ color: compColor, transparent: true, opacity: 0.12, blending: THREE.AdditiveBlending, depthWrite: false })
+);
+companion.add(compOuter);
+// Sprite halo
+const cnv = document.createElement('canvas');
+cnv.width = cnv.height = 128;
+const ctx = cnv.getContext('2d');
+const grad = ctx.createRadialGradient(64,64,4,64,64,64);
+grad.addColorStop(0, 'rgba(245,216,154,0.95)');
+grad.addColorStop(0.4, 'rgba(245,216,154,0.25)');
+grad.addColorStop(1, 'rgba(0,0,0,0)');
+ctx.fillStyle = grad; ctx.fillRect(0,0,128,128);
+const compHalo = new THREE.Sprite(new THREE.SpriteMaterial({
+  map: new THREE.CanvasTexture(cnv), transparent: true, opacity: 0.6,
+  blending: THREE.AdditiveBlending, depthWrite: false
+}));
+compHalo.scale.set(1.2, 1.2, 1);
+companion.add(compHalo);
+// Tiny point light from companion
+const compLight = new THREE.PointLight(0xf5d89a, 0.5, 4, 2);
+companion.add(compLight);
+
+companion.position.set(0.4, 1.5, -1.5);
+ROOM.add(companion);
+
+// ===== Rain particles outside window =====
+const RAIN_COUNT = 220;
+const rainGeo = new THREE.BufferGeometry();
+const rainPos = new Float32Array(RAIN_COUNT * 3);
+for (let i = 0; i < RAIN_COUNT; i++) {
+  rainPos[i*3]   = WIN_X + (Math.random() - 0.5) * WIN_W * 1.5;
+  rainPos[i*3+1] = WIN_Y + Math.random() * WIN_H * 1.5;
+  rainPos[i*3+2] = BACK_Z - 0.2 - Math.random() * 2.5;
+}
+rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
+const rain = new THREE.Points(rainGeo, new THREE.PointsMaterial({
+  color: 0x8aa0c0, size: 0.025, transparent: true, opacity: 0.45,
+  blending: THREE.AdditiveBlending, depthWrite: false
+}));
+scene.add(rain);
+
+// ===== Indoor dust motes — drifting in lamp light =====
+const DUST_COUNT = 120;
+const dustGeo = new THREE.BufferGeometry();
+const dustPos = new Float32Array(DUST_COUNT * 3);
+const dustPhase = new Float32Array(DUST_COUNT);
+for (let i = 0; i < DUST_COUNT; i++) {
+  dustPos[i*3]   = (Math.random() - 0.5) * 6;
+  dustPos[i*3+1] = 0.5 + Math.random() * 2.5;
+  dustPos[i*3+2] = -3 + Math.random() * 5;
+  dustPhase[i] = Math.random() * Math.PI * 2;
+}
+dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
+const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({
+  color: 0xf5d89a, size: 0.04, transparent: true, opacity: 0.5,
+  blending: THREE.AdditiveBlending, depthWrite: false
+}));
+scene.add(dust);
+
+// Far back ambience motes (visible through window)
+const skyMoteGeo = new THREE.BufferGeometry();
+const skyMotePos = new Float32Array(80 * 3);
+for (let i = 0; i < 80; i++) {
+  skyMotePos[i*3]   = (Math.random() - 0.5) * 8;
+  skyMotePos[i*3+1] = WIN_Y + (Math.random() - 0.5) * 3;
+  skyMotePos[i*3+2] = BACK_Z - 4 - Math.random() * 4;
+}
+skyMoteGeo.setAttribute('position', new THREE.BufferAttribute(skyMotePos, 3));
+const skyMotes = new THREE.Points(skyMoteGeo, new THREE.PointsMaterial({
+  color: 0x6d8db0, size: 0.06, transparent: true, opacity: 0.35,
+  blending: THREE.AdditiveBlending, depthWrite: false
+}));
+scene.add(skyMotes);
+
+// ===== Post-processing pipeline =====
+const composer = new THREE.EffectComposer(renderer);
+composer.setSize(window.innerWidth, window.innerHeight);
+composer.addPass(new THREE.RenderPass(scene, camera));
+
+const bloomPass = new THREE.UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  0.45,   // strength — warm but controlled
+  0.6,    // radius
+  0.55    // threshold — only very bright stuff blooms
+);
+composer.addPass(bloomPass);
+
+const CinematicShader = {
+  uniforms: {
+    tDiffuse:        { value: null },
+    time:            { value: 0 },
+    grainStrength:   { value: 0.04 },
+    vignetteStrength:{ value: 0.55 },
+    chromaStrength:  { value: 0.0012 },
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
+  `,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float time, grainStrength, vignetteStrength, chromaStrength;
+    varying vec2 vUv;
+    float rand(vec2 st) { return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123); }
+    void main() {
+      vec2 uv = vUv;
+      vec2 center = uv - 0.5;
+      float dist = length(center);
+      float ca = chromaStrength * (0.4 + dist);
+      float r = texture2D(tDiffuse, uv + center * ca).r;
+      float g = texture2D(tDiffuse, uv).g;
+      float b = texture2D(tDiffuse, uv - center * ca).b;
+      vec3 color = vec3(r, g, b);
+      float grain = rand(uv + fract(time)) - 0.5;
+      color += grain * grainStrength;
+      float vig = smoothstep(0.9, 0.2, dist);
+      color *= mix(1.0 - vignetteStrength, 1.0, vig);
+      gl_FragColor = vec4(color, 1.0);
+    }
+  `
+};
+const cinematicPass = new THREE.ShaderPass(CinematicShader);
+cinematicPass.renderToScreen = true;
+composer.addPass(cinematicPass);
 
 window.addEventListener('resize', () => {
   camera.aspect = window.innerWidth/window.innerHeight;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+  bloomPass.setSize(window.innerWidth, window.innerHeight);
 });
 
-// Lighting
-scene.add(new THREE.AmbientLight(0x4a5a78, 0.7));
-const torch = new THREE.PointLight(0xe6b86f, 2.5, 28, 1.4);
-torch.position.set(0, 2, 0);
-scene.add(torch);
-// Forward fill so things ahead are readable
-const forwardLight = new THREE.PointLight(0x6890b0, 1.0, 40, 1.6);
-forwardLight.position.set(0, 3, 0);
-scene.add(forwardLight);
-
-// ============= Procedural corridor =============
-// The world is endless: we generate tiles ahead, recycle behind.
-const TILE_SIZE = 4;
-const CORRIDOR_W = 3; // tiles wide each side
-const tilePool = [];
-const ruinPool = [];
-
-function makeTile(z) {
-  const g = new THREE.Group();
-  // Floor — flat slab
-  for (let dx = -1; dx <= 1; dx++) {
-    const slab = new THREE.Mesh(
-      new THREE.BoxGeometry(TILE_SIZE*0.95, 0.2, TILE_SIZE*0.95),
-      new THREE.MeshStandardMaterial({
-        color: 0x2a3548, emissive: 0x141c2c, emissiveIntensity: 1.0,
-        roughness: 0.7, metalness: 0.2,
-      })
-    );
-    slab.position.set(dx * TILE_SIZE, -0.1, 0);
-    g.add(slab);
-  }
-  // Edge rails — glowing cyan lines either side of path
-  for (const side of [-1, 1]) {
-    const rail = new THREE.Mesh(
-      new THREE.BoxGeometry(0.12, 0.08, TILE_SIZE),
-      new THREE.MeshBasicMaterial({ color: 0x6890b0, transparent: true, opacity: 0.85 })
-    );
-    rail.position.set(side * 1.5 * TILE_SIZE, 0.06, 0);
-    g.add(rail);
-  }
-  // Center dashed line — runner feel
-  const dash = new THREE.Mesh(
-    new THREE.BoxGeometry(0.06, 0.04, TILE_SIZE * 0.4),
-    new THREE.MeshBasicMaterial({ color: 0xa0b8d0, transparent: true, opacity: 0.35 })
-  );
-  dash.position.set(0, 0.02, 0);
-  g.add(dash);
-  g.position.z = z;
-  return g;
-}
-
-function makeRuin(z) {
-  const g = new THREE.Group();
-  const side = Math.random() < 0.5 ? -1 : 1;
-  const distance = (CORRIDOR_W + 2 + Math.random() * 4) * TILE_SIZE * side;
-  for (let i = 0; i < 3; i++) {
-    const w = 1 + Math.random()*2;
-    const h = 3 + Math.random()*8;
-    const d = 1 + Math.random()*2;
-    const ruin = new THREE.Mesh(
-      new THREE.BoxGeometry(w, h, d),
-      new THREE.MeshBasicMaterial({ color: 0x080c14, fog: true })
-    );
-    ruin.position.set(distance + (Math.random()-0.5)*4, h/2 - 0.5, z + (Math.random()-0.5)*TILE_SIZE);
-    // Some ruins get a faint lit window
-    if (Math.random() < 0.35) {
-      const win = new THREE.Mesh(
-        new THREE.PlaneGeometry(0.3, 0.5),
-        new THREE.MeshBasicMaterial({ color: 0xe6b86f, transparent: true, opacity: 0 })
-      );
-      win.position.set(0, h*0.3 - h/2 + 1.5, d/2 + 0.01);
-      win.userData.isWindow = true;
-      ruin.add(win);
-    }
-    g.add(ruin);
-  }
-  return g;
-}
-
-// Initialize corridor
-const TILES_AHEAD = 8;
-const TILES_BEHIND = 2;
-let nextTileZ = TILE_SIZE * TILES_AHEAD * -1;
-for (let i = 0; i < TILES_AHEAD + TILES_BEHIND; i++) {
-  const z = (i - TILES_BEHIND) * -TILE_SIZE;
-  const tile = makeTile(z);
-  scene.add(tile);
-  tilePool.push(tile);
-  const ruin = makeRuin(z);
-  scene.add(ruin);
-  ruinPool.push(ruin);
-}
-
-// Ambient particles (drifting motes)
-function makeParticles(count, range, color, size, opacity) {
-  const g = new THREE.BufferGeometry();
-  const pos = new Float32Array(count*3);
-  for (let i = 0; i < count; i++) {
-    pos[i*3] = (Math.random()-0.5) * range;
-    pos[i*3+1] = Math.random() * 8 + 0.5;
-    pos[i*3+2] = (Math.random()-0.5) * range;
-  }
-  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
-  const m = new THREE.PointsMaterial({
-    color, size, transparent: true, opacity,
-    blending: THREE.AdditiveBlending, depthWrite: false,
-  });
-  return new THREE.Points(g, m);
-}
-const motes = makeParticles(280, 80, 0xa0b8d0, 0.06, 0.5);
-scene.add(motes);
-
-// ============= Orb factory =============
-function makeOrb(colorHex, scale=1) {
-  const g = new THREE.Group();
-  const c = new THREE.Color(colorHex);
-  const core = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(0.32*scale, 1),
-    new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 1.2, roughness: 0.3 })
-  );
-  g.add(core);
-  const inner = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(0.52*scale, 1),
-    new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false })
-  );
-  g.add(inner);
-  const outer = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(0.9*scale, 1),
-    new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.1, blending: THREE.AdditiveBlending, depthWrite: false })
-  );
-  g.add(outer);
-
-  // Sprite halo
-  const cnv = document.createElement('canvas');
-  cnv.width = cnv.height = 128;
-  const ctx = cnv.getContext('2d');
-  const grad = ctx.createRadialGradient(64,64,4,64,64,64);
-  grad.addColorStop(0, `rgba(${(c.r*255)|0},${(c.g*255)|0},${(c.b*255)|0},0.95)`);
-  grad.addColorStop(0.4, `rgba(${(c.r*255)|0},${(c.g*255)|0},${(c.b*255)|0},0.25)`);
-  grad.addColorStop(1, 'rgba(0,0,0,0)');
-  ctx.fillStyle = grad; ctx.fillRect(0,0,128,128);
-  const halo = new THREE.Sprite(new THREE.SpriteMaterial({
-    map: new THREE.CanvasTexture(cnv), transparent: true,
-    blending: THREE.AdditiveBlending, depthWrite: false,
-  }));
-  halo.scale.set(2.6*scale, 2.6*scale, 1);
-  g.add(halo);
-
-  g.userData = { core, inner, outer, halo, color: c };
-  return g;
-}
-
-function setOrbBrightness(orb, b) {
-  orb.userData.core.material.emissiveIntensity = 0.3 + b * 2.0;
-  orb.userData.inner.material.opacity = 0.1 + b * 0.5;
-  orb.userData.outer.material.opacity = 0.04 + b * 0.25;
-  orb.userData.halo.material.opacity = b * 0.9;
-}
-
-// ============= Particle burst pool =============
-const burstPool = [];
-function spawnBurst(pos, colorHex, count=30) {
-  const g = new THREE.BufferGeometry();
-  const p = new Float32Array(count*3);
-  const v = new Float32Array(count*3);
-  for (let i = 0; i < count; i++) {
-    p[i*3] = pos.x; p[i*3+1] = pos.y; p[i*3+2] = pos.z;
-    const th = Math.random()*Math.PI*2;
-    const ph = Math.acos(2*Math.random()-1);
-    const s = 0.05 + Math.random()*0.08;
-    v[i*3]   = Math.sin(ph)*Math.cos(th)*s;
-    v[i*3+1] = Math.cos(ph)*s;
-    v[i*3+2] = Math.sin(ph)*Math.sin(th)*s;
-  }
-  g.setAttribute('position', new THREE.BufferAttribute(p, 3));
-  const m = new THREE.PointsMaterial({
-    color: colorHex, size: 0.14, transparent: true, opacity: 1,
-    blending: THREE.AdditiveBlending, depthWrite: false,
-  });
-  const pts = new THREE.Points(g, m);
-  pts.userData = { vel: v, life: 1 };
-  scene.add(pts);
-  burstPool.push(pts);
-}
-
-// ============= Audio =============
+// ===== Audio — rain + soft hum =====
 let actx = null;
+let rainGain = null, humGain = null;
 function initAudio() {
   if (actx) return;
   actx = new (window.AudioContext || window.webkitAudioContext)();
-}
-function tone(freq, dur=0.3, type='sine', vol=0.15, delay=0) {
-  if (!actx) return;
-  const t0 = actx.currentTime + delay;
-  const osc = actx.createOscillator();
-  const g = actx.createGain();
-  osc.type = type; osc.frequency.value = freq;
-  g.gain.setValueAtTime(0, t0);
-  g.gain.linearRampToValueAtTime(vol, t0 + 0.02);
-  g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
-  osc.connect(g).connect(actx.destination);
-  osc.start(t0); osc.stop(t0 + dur);
-}
-function failWash() {
-  // Single soft warm exhale. No descending minor wash.
-  if (!actx) return;
-  tone(174.6, 0.9, 'sine', 0.05);
-}
-function shardSound() {
-  if (!actx) return;
-  [523, 659, 784, 1046].forEach((f,i) => tone(f, 0.6, 'sine', 0.12, i*0.08));
-}
-function startSound() {
-  if (!actx) return;
-  tone(110, 0.4, 'sine', 0.1);
-  tone(220, 0.4, 'sine', 0.08, 0.05);
+
+  // Rain — filtered noise
+  const buf = actx.createBuffer(1, actx.sampleRate * 2, actx.sampleRate);
+  const data = buf.getChannelData(0);
+  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.5;
+  const noise = actx.createBufferSource();
+  noise.buffer = buf; noise.loop = true;
+  const bp = actx.createBiquadFilter();
+  bp.type = 'bandpass'; bp.frequency.value = 1100; bp.Q.value = 0.6;
+  rainGain = actx.createGain();
+  rainGain.gain.setValueAtTime(0, actx.currentTime);
+  rainGain.gain.linearRampToValueAtTime(0.06, actx.currentTime + 3.5);
+  noise.connect(bp).connect(rainGain).connect(actx.destination);
+  noise.start();
+
+  // Warm hum — two low sines
+  const osc1 = actx.createOscillator(); osc1.frequency.value = 55; osc1.type = 'sine';
+  const osc2 = actx.createOscillator(); osc2.frequency.value = 110; osc2.type = 'sine';
+  humGain = actx.createGain();
+  humGain.gain.setValueAtTime(0, actx.currentTime);
+  humGain.gain.linearRampToValueAtTime(0.025, actx.currentTime + 4);
+  osc1.connect(humGain); osc2.connect(humGain);
+  humGain.connect(actx.destination);
+  osc1.start(); osc2.start();
 }
 
-// ============= Run state =============
-const STATE = {
-  HUB: 'hub',
-  RUN_INTRO: 'run_intro',
-  WINDOW: 'window',     // showing sequence
-  GAP: 'gap',           // running between
-  GATE: 'gate',         // player input
-  GATE_PASS: 'gate_pass',
-  GATE_FAIL: 'gate_fail',
-  SHARD: 'shard',
-};
-
-const game = {
-  state: STATE.HUB,
-  started: false,
-  runSpeed: 0,           // current forward speed
-  baseSpeed: 3.8,        // units/sec — walk pace, never rushy
-  sequence: [],          // current memory sequence
-  playerIndex: 0,        // index into sequence player is tapping
-  gateOrbs: [],          // orbs at the current gate (5 colored buttons)
-  windowOrbs: [],        // orbs showing the sequence
-  gatesPassed: 0,
-  gatesPerRun: 6,
-  seqLen: 2,
-  successHistory: [],
-  shardsCaptured: 0,
-  totalShards: 5,
-  lightLevel: 0,         // 0..1 — light meter
-  lastShown: 0,
-  echoTimeout: null,
-};
-
-// ============= HUD helpers =============
-const echoEl = document.getElementById('echo');
-function sayEcho(text, dur=2500) {
-  clearTimeout(game.echoTimeout);
-  if (!text) { echoEl.classList.remove('show'); return; }
-  echoEl.textContent = text;
-  echoEl.classList.add('show');
-  game.echoTimeout = setTimeout(() => echoEl.classList.remove('show'), dur);
+// ===== Whisper line =====
+const whisperEl = document.getElementById('whisper');
+let whisperTimeout = null;
+function whisper(text, dur=4500) {
+  clearTimeout(whisperTimeout);
+  if (!text) { whisperEl.classList.remove('show'); return; }
+  whisperEl.textContent = text;
+  whisperEl.classList.add('show');
+  whisperTimeout = setTimeout(() => whisperEl.classList.remove('show'), dur);
 }
 
-function setLight(v) {
-  game.lightLevel = Math.max(0, Math.min(1, v));
-  document.getElementById('light-meter-fill').style.height = (game.lightLevel * 100) + '%';
-  torch.intensity = 1.0 + game.lightLevel * 2.0;
-  torch.distance = 18 + game.lightLevel * 16;
-}
-
-function initShardsHUD() {
-  const c = document.getElementById('shards');
-  c.innerHTML = '';
-  for (let i = 0; i < game.totalShards; i++) {
-    const d = document.createElement('div');
-    d.className = 'shard';
-    c.appendChild(d);
-  }
-}
-function updateShardsHUD() {
-  const cs = document.querySelectorAll('.shard');
-  cs.forEach((el, i) => el.classList.toggle('filled', i < game.shardsCaptured));
-}
-initShardsHUD();
-setLight(0.1);
-
-function showFailFlash() {
-  // Gentle vignette + soft text. Never punches.
-  const f = document.getElementById('fail-flash');
-  const t = document.getElementById('fail-text');
-  t.textContent = pick(['it slipped. no rush.', 'try again, gently.', '...we have time.']);
-  f.classList.add('show');
-  t.classList.add('show');
-  setTimeout(() => { f.classList.remove('show'); t.classList.remove('show'); }, 1500);
-}
-
-function showShardBanner(memoryLine='') {
-  const b = document.getElementById('shard-banner');
-  document.getElementById('shard-memory').textContent = memoryLine || '';
-  b.classList.add('show');
-  setTimeout(() => b.classList.remove('show'), 3200);
-}
-
-// Story card — show a sequence of lines, then a tap-to-continue CTA
-let storyCardResolver = null;
-function showStoryCard(lines, onTap) {
-  const story = document.getElementById('story');
-  const linesEl = document.getElementById('story-lines');
-  const cta = document.getElementById('story-cta');
-  linesEl.innerHTML = '';
-  cta.classList.remove('in');
-
-  // Build line elements
-  lines.forEach((entry) => {
-    const div = document.createElement('div');
-    div.className = 'line';
-    if (entry.dim) div.classList.add('dim');
-    if (entry.name) div.classList.add('name');
-    div.textContent = entry.text || ' ';
-    linesEl.appendChild(div);
-  });
-
-  story.classList.add('show');
-
-  // Stagger fade-in
-  const lineEls = linesEl.querySelectorAll('.line');
-  lineEls.forEach((el, i) => {
-    setTimeout(() => el.classList.add('in'), 400 + i * 700);
-  });
-  // CTA appears after last line
-  setTimeout(() => cta.classList.add('in'), 400 + lineEls.length * 700 + 400);
-
-  storyCardResolver = () => {
-    story.classList.remove('show');
-    storyCardResolver = null;
-    setTimeout(onTap, 900);
-  };
-}
-
-// Phase cue (watch / your turn pill)
-const phaseCueEl = document.getElementById('phase-cue');
-let phaseCueHide = null;
-function setPhaseCue(text, isPlay, dur=1500) {
-  clearTimeout(phaseCueHide);
-  phaseCueEl.textContent = text;
-  phaseCueEl.classList.toggle('play', !!isPlay);
-  phaseCueEl.classList.add('show');
-  phaseCueHide = setTimeout(() => phaseCueEl.classList.remove('show'), dur);
-}
-
-// Gentle two-note invitation — "ready" cue. Soft, not triumphant.
-function readySound() {
-  if (!actx) return;
-  [329, 415].forEach((f,i) => tone(f, 0.6, 'sine', 0.06, i*0.18));
-}
-// Low warm tone — "watch" cue. A whisper, not a warning.
-function watchSound() {
-  if (!actx) return;
-  tone(196, 0.7, 'sine', 0.05);
-}
-
-// ============= Tile recycling =============
-function recycleTiles() {
-  // If camera passed a tile far enough, move it to the front
-  tilePool.forEach((tile, i) => {
-    if (camera.position.z - tile.position.z < -(TILES_BEHIND * TILE_SIZE)) {
-      // Move to far ahead
-      let minZ = Math.min(...tilePool.map(t => t.position.z));
-      tile.position.z = minZ - TILE_SIZE;
-      const ruin = ruinPool[i];
-      ruin.position.z = tile.position.z;
-      // Re-randomize ruins slightly
-      ruin.children.forEach(child => {
-        if (Math.random() < 0.3) {
-          child.position.x += (Math.random()-0.5) * 2;
-        }
-      });
-    }
-  });
-  ruinPool.forEach((ruin, i) => {
-    if (camera.position.z - ruin.position.z < -(TILES_BEHIND * TILE_SIZE)) {
-      let minZ = Math.min(...ruinPool.map(r => r.position.z));
-      ruin.position.z = minZ - TILE_SIZE;
-    }
-  });
-  // Light some windows progressively based on shards captured
-  ruinPool.forEach(ruin => {
-    ruin.children.forEach(piece => {
-      piece.children.forEach(child => {
-        if (child.userData && child.userData.isWindow) {
-          const target = game.shardsCaptured / game.totalShards * 0.8;
-          child.material.opacity += (target - child.material.opacity) * 0.05;
-        }
-      });
-    });
-  });
-}
-
-// ============= Sequence / Gate spawning =============
-const orbGroup = new THREE.Group();
-scene.add(orbGroup);
-
-function clearWindowOrbs() {
-  game.windowOrbs.forEach(o => orbGroup.remove(o));
-  game.windowOrbs = [];
-}
-function clearGateOrbs() {
-  game.gateOrbs.forEach(o => orbGroup.remove(o));
-  game.gateOrbs = [];
-}
-
-function generateSequence(len) {
-  const seq = [];
-  for (let i = 0; i < len; i++) {
-    let idx;
-    do { idx = Math.floor(Math.random()*5); } while (i > 0 && idx === seq[i-1]);
-    seq.push(idx);
-  }
-  return seq;
-}
-
-function spawnWindow(seq, zCenter) {
-  // Show sequence as orbs floating above the path, flashing in order
-  clearWindowOrbs();
-  const spacing = 1.2;
-  const totalW = (seq.length - 1) * spacing;
-  seq.forEach((idx, i) => {
-    const orb = makeOrb(ORBS[idx].color, 0.85);
-    orb.position.set(-totalW/2 + i*spacing, 2.4, zCenter);
-    setOrbBrightness(orb, 0.05);
-    orb.userData.spec = ORBS[idx];
-    orb.userData.seqIndex = i;
-    orbGroup.add(orb);
-    game.windowOrbs.push(orb);
-  });
-  // Light them in order with timing
-  const interval = Math.max(360, 700 - game.successHistory.length * 18); // gets faster with success
-  seq.forEach((idx, i) => {
-    setTimeout(() => {
-      if (game.state !== STATE.WINDOW) return;
-      const orb = game.windowOrbs[i];
-      if (!orb) return;
-      // bright pulse
-      const t0 = performance.now();
-      const dur = interval * 0.6;
-      function step() {
-        const t = (performance.now() - t0)/dur;
-        if (t >= 1) { setOrbBrightness(orb, 0.05); return; }
-        const e = Math.sin(t * Math.PI); // up and back
-        setOrbBrightness(orb, 0.05 + e * 0.95);
-        requestAnimationFrame(step);
-      }
-      step();
-      tone(ORBS[idx].freq, 0.32, 'sine', 0.16);
-    }, i * interval + 200);
-  });
-}
-
-function spawnGate(seq, zCenter) {
-  // 5 orbs in a row across the path — buttons to tap in order
-  clearGateOrbs();
-  const order = [0,1,2,3,4]; // always show all 5 colors so memory work is real
-  // Shuffle so positions vary
-  for (let i = order.length-1; i > 0; i--) {
-    const j = Math.floor(Math.random()*(i+1));
-    [order[i],order[j]] = [order[j],order[i]];
-  }
-  const spacing = 2.0;
-  const totalW = (order.length - 1) * spacing;
-  order.forEach((idx, i) => {
-    const orb = makeOrb(ORBS[idx].color, 0.8);
-    orb.position.set(-totalW/2 + i*spacing, 1.6, zCenter);
-    // SPAWN DIM — watch phase, not your turn yet
-    setOrbBrightness(orb, 0.12);
-    orb.userData.spec = ORBS[idx];
-    orb.userData.colorIndex = idx;
-    orb.userData.tapped = false;
-    orb.userData.basePhase = Math.random()*Math.PI*2;
-    orb.userData.baseY = 1.6;
-    orb.userData.gateScale = 0.8;
-    orbGroup.add(orb);
-    game.gateOrbs.push(orb);
-  });
-}
-
-// Animate gate orbs from dim to bright, with scale-up swell — "your turn" signal
-function activateGateOrbs() {
-  readySound();
-  setPhaseCue('ready', true, 3500);
-  game.gateOrbs.forEach((orb, i) => {
-    const start = performance.now() + i * 70;
-    const dur = 380;
-    (function step() {
-      const t = Math.max(0, Math.min(1, (performance.now() - start) / dur));
-      const e = 1 - Math.pow(1 - t, 3);
-      setOrbBrightness(orb, 0.12 + e * 0.55);
-      const s = 1 + e * 0.18; // gentle swell
-      orb.scale.setScalar(s);
-      if (t < 1) requestAnimationFrame(step);
-    })();
-  });
-}
-
-// ============= Run flow =============
-function startRun() {
-  game.state = STATE.RUN_INTRO;
-  game.gatesPassed = 0;
-  game.playerIndex = 0;
-  game.runSpeed = game.baseSpeed;
-  clearWindowOrbs();
-  clearGateOrbs();
-  setLight(0.15);
-  startSound();
-  sayEcho(pick(ECHO.runStart), 1600);
-  setTimeout(scheduleNextWindow, 600);
-}
-
-function currentRunIdx() {
-  // Run index 0..4 — tied to next shard to capture
-  return game.shardsCaptured;
-}
-
-function scheduleNextWindow() {
-  if (game.state === STATE.SHARD || game.state === STATE.HUB) return;
-
-  // Spawn a sequence window ~10 units ahead
-  const seq = generateSequence(game.seqLen);
-  game.sequence = seq;
-  const zCenter = camera.position.z - 14;
-  spawnWindow(seq, zCenter);
-  game.state = STATE.WINDOW;
-
-  // WATCH phase cue + sound
-  watchSound();
-  setPhaseCue('watch', false, 2400);
-
-  // Spawn gate (dim) further ahead — visible but clearly "not active yet"
-  const gateZ = camera.position.z - 24;
-  spawnGate(seq, gateZ);
-
-  // After window plays out, transition to GAP, then GATE
-  const interval = Math.max(360, 700 - game.successHistory.length * 18);
-  const windowDur = seq.length * interval + 400;
-  setTimeout(() => {
-    if (game.state === STATE.SHARD || game.state === STATE.HUB) return;
-    game.state = STATE.GAP;
-    // Dissolve sequence orbs
-    game.windowOrbs.forEach((orb, i) => {
-      const start = performance.now();
-      (function fade() {
-        const t = Math.min(1, (performance.now() - start) / 500);
-        setOrbBrightness(orb, (1-t) * 0.05);
-        orb.scale.setScalar(1 - t * 0.5);
-        if (t >= 1) { orbGroup.remove(orb); }
-        else requestAnimationFrame(fade);
-      })();
-    });
-    setTimeout(() => { game.windowOrbs = []; }, 520);
-
-    // Switch to GATE when camera arrives
-    const checkArrival = () => {
-      if (game.state === STATE.SHARD || game.state === STATE.HUB) return;
-      if (game.gateOrbs.length > 0 && camera.position.z - game.gateOrbs[0].position.z < 4) {
-        game.state = STATE.GATE;
-        game.playerIndex = 0;
-        // STOP at gate — player taps in remembered order to pass
-        game.runSpeed = 0;
-        // Gentle ease to gate — no snap. eased over ~700ms.
-        const targetZ = game.gateOrbs[0].position.z + 7.5;
-        const slideStart = performance.now();
-        const fromZ = camera.position.z;
-        const slideDur = 700;
-        (function slide() {
-          const t = Math.min(1, (performance.now() - slideStart) / slideDur);
-          const e = 1 - Math.pow(1 - t, 3); // easeOutCubic
-          camera.position.z = fromZ + (targetZ - fromZ) * e;
-          if (t < 1 && game.state === STATE.GATE) requestAnimationFrame(slide);
-        })();
-        // Once camera has settled, invite player
-        setTimeout(activateGateOrbs, 500);
-      } else {
-        requestAnimationFrame(checkArrival);
-      }
-    };
-    checkArrival();
-  }, windowDur);
-}
-
-function onGateHit(orb) {
-  if (game.state !== STATE.GATE) return;
-  if (orb.userData.tapped) return;
-
-  const expected = game.sequence[game.playerIndex];
-  const tapped = orb.userData.colorIndex;
-
-  // Always give feedback for the tap
-  spawnBurst(orb.position, orb.userData.color.getHex(), 22);
-  tone(orb.userData.spec.freq, 0.32, 'sine', 0.18);
-  setOrbBrightness(orb, 1.0);
-  orb.userData.tapped = true;
-  setTimeout(() => { if (!orb.userData.tapped) return; setOrbBrightness(orb, 0.3); }, 250);
-
-  if (tapped === expected) {
-    game.playerIndex++;
-    if (game.playerIndex >= game.sequence.length) {
-      onGatePass();
-    }
+// ===== Onboarding flow =====
+let inRoom = false;
+function advanceOnboard() {
+  onboardScreen++;
+  if (onboardScreen < ONBOARD.length) {
+    showOnboardScreen(onboardScreen);
   } else {
-    onGateFail();
+    document.getElementById('onboard').classList.add('fade');
+    setTimeout(enterRoom, 1500);
   }
 }
 
-function onGatePass() {
-  game.state = STATE.GATE_PASS;
-  game.gatesPassed++;
-  game.successHistory.push(1);
-  if (game.successHistory.length > 12) game.successHistory.shift();
-
-  // Big juice
-  game.gateOrbs.forEach(o => {
-    spawnBurst(o.position, o.userData.color.getHex(), 18);
-  });
-
-  // Light grows
-  setLight(game.lightLevel + 0.12);
-
-  // Mid-run story beat? (overrides the short ECHO reaction)
-  const runIdx = currentRunIdx();
-  const beat = MID_RUN_LOOKUP[runIdx] && MID_RUN_LOOKUP[runIdx][game.gatesPassed];
-  if (beat) {
-    sayEcho(beat, 3200);
-  } else if (Math.random() < 0.7) {
-    sayEcho(pick(ECHO.passShort), 1400);
-  } else {
-    sayEcho(pick(ECHO.passLong), 1800);
-  }
-
-  // Gentle resume — no rush.
-  game.runSpeed = game.baseSpeed * 0.9;
-  setTimeout(() => { game.runSpeed = game.baseSpeed; }, 1200);
-
-  // Adapt difficulty
-  adaptDifficulty();
-
-  // Continue
-  clearGateOrbs();
-  clearWindowOrbs();
-
-  if (game.gatesPassed >= game.gatesPerRun) {
-    setTimeout(triggerShard, 1000);
-  } else {
-    setTimeout(scheduleNextWindow, 800);
-  }
+function enterRoom() {
+  inRoom = true;
+  initAudio();
+  // First whisper — companion notices you
+  setTimeout(() => whisper('oh — hi.', 4000), 2000);
+  setTimeout(() => whisper('the rain came back.', 5000), 8500);
+  setTimeout(() => whisper('the lamp is warm.', 5000), 16000);
 }
 
-function onGateFail() {
-  game.state = STATE.GATE_FAIL;
-  game.successHistory.push(0);
-  if (game.successHistory.length > 12) game.successHistory.shift();
-  failWash();
-  showFailFlash();
-  setLight(Math.max(0.1, game.lightLevel - 0.1));
-
-  sayEcho(pick(ECHO.fail), 1800);
-  adaptDifficulty();
-
-  // Soft restart: gate clears, gentle resume after a real breath.
-  setTimeout(() => {
-    clearGateOrbs();
-    clearWindowOrbs();
-    game.runSpeed = game.baseSpeed;
-    if (game.state === STATE.GATE_FAIL) {
-      scheduleNextWindow();
-    }
-  }, 1700);
-}
-
-function adaptDifficulty() {
-  const hits = game.successHistory.filter(x => x === 1).length;
-  const tot = game.successHistory.length;
-  const rate = tot > 0 ? hits / tot : 0.5;
-  if (tot >= 3) {
-    if (rate > 0.85 && game.seqLen < 5) {
-      // Bump up occasionally
-      if (Math.random() < 0.4) game.seqLen++;
-    } else if (rate < 0.5 && game.seqLen > 2) {
-      game.seqLen--;
-    }
-  }
-}
-
-function triggerShard() {
-  game.state = STATE.SHARD;
-  game.shardsCaptured++;
-  updateShardsHUD();
-  game.runSpeed = 0;
-  shardSound();
-  // Memory fragment for this shard (1-indexed → 0-indexed array)
-  const memoryLine = STORY.shardMemory[game.shardsCaptured - 1] || '';
-  showShardBanner(memoryLine);
-  setLight(1.0);
-
-  sayEcho(pick(ECHO.shard), 2500);
-
-  setTimeout(() => {
-    if (game.shardsCaptured >= game.totalShards) {
-      chapterComplete();
-    } else {
-      goToHub();
-    }
-  }, 3600);
-}
-
-function goToHub() {
-  game.state = STATE.HUB;
-  // Between-run story line (shows behind hub screen as it appears)
-  const betweenLine = STORY.betweenRun[game.shardsCaptured - 1] || '';
-  setTimeout(() => {
-    const s = document.getElementById('screen');
-    s.querySelector('h1').textContent = '◆'.repeat(game.shardsCaptured);
-    s.querySelector('.sub').textContent = betweenLine || `${game.shardsCaptured} of ${game.totalShards}`;
-    s.querySelector('.cta').textContent = '— tap to run again —';
-    s.classList.remove('fade');
-  }, 1200);
-}
-
-function chapterComplete() {
-  game.state = STATE.HUB;
-  // Show closing story card
-  setTimeout(() => {
-    showStoryCard(STORY.closing, () => {
-      const s = document.getElementById('screen');
-      s.querySelector('h1').textContent = 'LETHE CITY';
-      s.querySelector('.sub').textContent = 'the city remembered itself';
-      s.querySelector('.cta').textContent = '— ii. coming soon —';
-      s.classList.remove('fade');
-    });
-  }, 800);
-}
-
-// ============= Input =============
-const raycaster = new THREE.Raycaster();
-const pointer = new THREE.Vector2();
-
-function handleTap(clientX, clientY) {
-  // If a story card is up, tap advances it
-  if (storyCardResolver) {
-    storyCardResolver();
-    return;
-  }
-  if (!game.started) {
-    beginGame();
-    return;
-  }
-  if (game.state === STATE.HUB) {
-    const s = document.getElementById('screen');
-    s.classList.add('fade');
-    setTimeout(startRun, 800);
-    return;
-  }
-  if (game.state !== STATE.GATE) return;
-
-  pointer.x = (clientX/window.innerWidth)*2 - 1;
-  pointer.y = -(clientY/window.innerHeight)*2 + 1;
-  raycaster.setFromCamera(pointer, camera);
-  const cores = game.gateOrbs.map(o => o.userData.core);
-  const hits = raycaster.intersectObjects(cores, false);
-  if (hits.length === 0) {
-    // Also test against larger glow spheres for forgiving touch
-    const inners = game.gateOrbs.map(o => o.userData.inner);
-    const altHits = raycaster.intersectObjects(inners, false);
-    if (altHits.length === 0) return;
-    const orb = game.gateOrbs.find(o => o.userData.inner === altHits[0].object);
-    if (orb) onGateHit(orb);
-    return;
-  }
-  const orb = game.gateOrbs.find(o => o.userData.core === hits[0].object);
-  if (orb) onGateHit(orb);
-}
-
-window.addEventListener('pointerdown', (ev) => {
-  const x = ev.clientX !== undefined ? ev.clientX : (ev.touches && ev.touches[0].clientX) || 0;
-  const y = ev.clientY !== undefined ? ev.clientY : (ev.touches && ev.touches[0].clientY) || 0;
-  handleTap(x, y);
+window.addEventListener('pointerdown', () => {
+  if (!inRoom) advanceOnboard();
 });
 
-function beginGame() {
-  initAudio();
-  game.started = true;
-  document.getElementById('screen').classList.add('fade');
-  // Show opening story card first
-  setTimeout(() => {
-    showStoryCard(STORY.opening, () => {
-      startRun();
-    });
-  }, 600);
-}
-
-// ============= Animation loop =============
-let lastT = performance.now();
-let runBob = 0;
+// ===== Animation loop =====
+let t0 = performance.now();
 function animate() {
   requestAnimationFrame(animate);
   const now = performance.now();
-  const dt = Math.min(0.05, (now - lastT)/1000);
-  lastT = now;
+  const t = (now - t0) / 1000;
+  const dt = Math.min(0.05, t - (animate.lastT || t));
+  animate.lastT = t;
 
-  // Forward motion
-  if (game.runSpeed > 0) {
-    camera.position.z -= game.runSpeed * dt;
-    // Subtle walk-bob (gentler than before)
-    runBob += dt * 3.5;
-    camera.position.y = 1.7 + Math.sin(runBob) * 0.03;
-    camera.rotation.z = Math.sin(runBob * 0.5) * 0.005;
-  }
-  torch.position.copy(camera.position);
-  forwardLight.position.set(camera.position.x, camera.position.y + 1, camera.position.z - 8);
+  // Companion drift — slow figure-8 near the desk
+  const ct = t * 0.4;
+  companion.position.x = 0.4 + Math.sin(ct) * 0.4;
+  companion.position.y = 1.5 + Math.sin(ct * 1.7) * 0.12;
+  companion.position.z = -1.5 + Math.cos(ct * 0.7) * 0.3;
+  companion.rotation.y += dt * 0.6;
+  compCore.rotation.x += dt * 0.3;
+  // Subtle breathing in the glow
+  const breath = 0.85 + Math.sin(t * 0.8) * 0.15;
+  compInner.material.opacity = 0.35 * breath;
+  compOuter.material.opacity = 0.12 * breath;
+  compHalo.material.opacity = 0.6 * breath;
 
-  // Recycle tiles
-  recycleTiles();
+  // Lamp flicker — very subtle
+  const flicker = 1.0 + Math.sin(t * 9.7) * 0.015 + Math.sin(t * 17.3) * 0.01;
+  lampLight.intensity = 1.6 * flicker;
+  lampShade.material.emissiveIntensity = 0.55 * flicker;
 
-  // Drift motes with camera
-  const mp = motes.geometry.attributes.position.array;
-  for (let i = 0; i < mp.length; i += 3) {
-    mp[i+1] += 0.003;
-    if (mp[i+1] > 9) mp[i+1] = 0.5;
-    // Recycle in z relative to camera
-    if (camera.position.z - mp[i+2] < -40) mp[i+2] -= 80;
-    if (camera.position.z - mp[i+2] > 40) mp[i+2] += 80;
-  }
-  motes.geometry.attributes.position.needsUpdate = true;
-
-  // Animate orbs gentle hover
-  [...game.windowOrbs, ...game.gateOrbs].forEach(orb => {
-    if (orb.userData.basePhase !== undefined) {
-      orb.userData.basePhase += dt * 1.5;
-      orb.position.y = (orb.userData.baseY || orb.position.y) + Math.sin(orb.userData.basePhase) * 0.06;
-    }
-    orb.rotation.y += dt * 0.6;
-  });
-
-  // Burst particles
-  for (let i = burstPool.length - 1; i >= 0; i--) {
-    const b = burstPool[i];
-    const p = b.geometry.attributes.position.array;
-    const v = b.userData.vel;
-    for (let j = 0; j < p.length; j += 3) {
-      p[j]   += v[j];
-      p[j+1] += v[j+1];
-      p[j+2] += v[j+2];
-      v[j+1] -= 0.0014;
-    }
-    b.geometry.attributes.position.needsUpdate = true;
-    b.userData.life -= dt * 1.3;
-    b.material.opacity = Math.max(0, b.userData.life);
-    if (b.userData.life <= 0) {
-      scene.remove(b);
-      b.geometry.dispose(); b.material.dispose();
-      burstPool.splice(i, 1);
+  // Rain — falls in z+y, recycles at top
+  const rp = rain.geometry.attributes.position.array;
+  for (let i = 0; i < rp.length; i += 3) {
+    rp[i+1] -= 0.07;
+    rp[i+2] += 0.005;
+    if (rp[i+1] < WIN_Y - WIN_H/2 - 0.3) {
+      rp[i+1] = WIN_Y + WIN_H * 0.8;
+      rp[i+2] = BACK_Z - 0.2 - Math.random() * 2.5;
     }
   }
+  rain.geometry.attributes.position.needsUpdate = true;
 
-  renderer.render(scene, camera);
+  // Dust motes — gentle sin-wave drift
+  const dp = dust.geometry.attributes.position.array;
+  for (let i = 0; i < dp.length / 3; i++) {
+    dustPhase[i] += dt * 0.6;
+    dp[i*3]   += Math.sin(dustPhase[i] + i) * 0.0008;
+    dp[i*3+1] += 0.0005;
+    dp[i*3+2] += Math.cos(dustPhase[i] * 0.7) * 0.0006;
+    if (dp[i*3+1] > 3.2) dp[i*3+1] = 0.4;
+  }
+  dust.geometry.attributes.position.needsUpdate = true;
+
+  // Sky motes — very slow drift
+  const sp = skyMotes.geometry.attributes.position.array;
+  for (let i = 0; i < sp.length; i += 3) {
+    sp[i] += 0.0005;
+    if (sp[i] > 4) sp[i] = -4;
+  }
+  skyMotes.geometry.attributes.position.needsUpdate = true;
+
+  // Camera — subtle breathing — feels alive without being motion-sick
+  camera.position.y = 1.85 + Math.sin(t * 0.4) * 0.025;
+  camera.position.x = Math.sin(t * 0.25) * 0.05;
+  camera.lookAt(0, 1.4 + Math.sin(t * 0.3) * 0.04, -2);
+
+  cinematicPass.uniforms.time.value = t;
+  composer.render();
 }
 animate();
 </script>

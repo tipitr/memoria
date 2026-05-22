@@ -1,55 +1,75 @@
-# MEMORIA
+# MOMENTUM
 
-A dark fantasy narrative game for ADHD teens.
+A cozy emotional-regulation game disguised as a quiet room.
 
-The clinical layer is invisible. The story is what the player experiences. Cognitive skills are trained through play, never named in the text.
+For ADHD brains. (Made by one.)
+
+## What it is
+
+You enter a small bedroom-studio. It's late. The lamp is warm. Rain on the window. A small companion drifts by the desk.
+
+When something is heavy, you gather a wisp — and a *tiny first step* appears. Then you leave. Do the thing (or don't). Come back whenever. The room stayed warm for you.
+
+The reward is **state improvement**, not task completion. The room calms with you. The companion stays.
+
+## What it explicitly is not
+
+- A productivity app
+- A task manager
+- A brain-training game
+- A therapy app
+
+No streaks. No daily goals. No "you missed N quests." No XP. No leveling. No push notifications.
 
 ## Status
 
-Early prototype. Chapter 1 — *Lethe City* (Working Memory) — playable. Chapters 2–5 in design.
+v0.1 — the room exists. No interaction yet. Just sit in it.
+
+Next: the gather mechanic. Wisps drifting toward the companion → tiny quests.
 
 ## Stack
 
-- **Three.js r128** — 3D game engine
-- **Anthropic API** — ECHO (NPC) dialogue, adaptive feedback
-- **Supabase** — player progress
-- **Vercel** — deploy
-- **Meshy AI / Higgsfield / Nanobanana** — asset pipeline
+- **Three.js r128** — 3D scene + post-processing (bloom, grain, vignette)
+- **Anthropic API** — light LLM assistance for task-classification → tiny-quest generation (planned)
+- **Supabase** — state persistence across the "world sleeps while you act" loop (planned)
 - **Capacitor.js** — mobile wrap (planned)
+- **Vercel** — deploy
+
+## History
+
+This project pivoted from **MEMORIA** — a dark fantasy narrative working-memory game — in May 2026 after playtests revealed that the runner format created ADHD anxiety. The multi-agent brainstorm at `momentum_game_v3_brainstorm.md` reframed the entire approach: from cognitive training to emotional regulation, from grief to curiosity, from a chapter game to a room.
+
+The final MEMORIA commit is tagged `memoria-final`. The runner build is preserved at `archive/memoria-runner.html`.
 
 ## Design constraints (non-negotiable)
 
-- No skill tree, no XP, no "EF mastery" UI
-- No variable-ratio reward schedules
-- No "brain training" / therapeutic claims in any surface
-- Failure is narrative, never penalty
-- ECHO never breaks the fourth wall
-- Adaptive difficulty based on individual response time, not preset rounds
-- ~25 min therapeutic session window (EndeavorRx precedent)
+- Reward = state improvement, not task completion
+- No streaks, percentages, daily goals
+- No push notifications, ever
+- The room is always welcoming on return — no catch-up screens, no shame
+- The game wants you to leave it (exit velocity > engagement)
+- Companion never judges, pushes, prescribes, or moralizes
+- State vars (energy, overwhelm, focus, momentum, noise) are computed, never displayed
+- No "challenge mode" / "perfect day" / completable room
 
 ## Project skills
 
-The `.claude/skills/` directory holds three project-local skills that govern design:
-
-- **`memoria-clinical-advisor`** — audits chapters against Barkley EF model, EndeavorRx precedent, and transfer-effect literature. Refuses to rubber-stamp gimmicks.
-- **`memoria-narrative-designer`** — keeps the story, voice, and world coherent. Refuses generic dark-fantasy tropes and any clinical leakage into the fiction.
-- Third-party skills (Three.js, Supabase, accessibility, etc.) installed via `npx skills` — see `skills-lock.json`.
-
-## Chapter structure
-
-| Chapter | Place | Skill (hidden) |
-|---|---|---|
-| 1 | Lethe City | Working memory |
-| 2 | The Threshold District | Response inhibition |
-| 3 | The Cartographer's Hollow | Planning |
-| 4 | The Drowned Village | Emotion regulation |
-| 5 | The Garden of Once | Time awareness |
+`.claude/skills/` holds project-local guardrails:
+- **`momentum-clinical-advisor`** — audits every feature against ADHD intervention research and ethics
+- **`momentum-narrative-designer`** — governs tone, voice, copy. Bans productivity language.
+- Third-party skills via `npx skills` — Three.js, Supabase, accessibility, etc.
 
 ## Local setup
 
 ```bash
-npm install
-npx skills install   # restores third-party skills from skills-lock.json
+npm install                # nothing to install yet — single file prototype
+npx skills install         # restore third-party skills from skills-lock.json
+```
+
+Open `index.html` directly, or:
+
+```bash
+npx serve -p 8000
 ```
 
 ## License

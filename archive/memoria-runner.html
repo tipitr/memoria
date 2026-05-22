@@ -1,0 +1,1255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<title>MEMORIA — Memory Runner</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  html, body { width: 100%; height: 100%; overflow: hidden; background: #04060a; color: #d6dbe4; font-family: 'Iowan Old Style', Georgia, serif; -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; user-select: none; touch-action: none; }
+  canvas { display: block; position: fixed; inset: 0; }
+
+  /* HUD layer */
+  #hud { position: fixed; inset: 0; pointer-events: none; z-index: 5; }
+
+  /* Light meter — left edge, vertical, fills upward */
+  #light-meter {
+    position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+    width: 4px; height: 36vh; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden;
+  }
+  #light-meter-fill {
+    position: absolute; bottom: 0; left: 0; right: 0;
+    background: linear-gradient(to top, #e6b86f, #f5d89a);
+    height: 0%; transition: height 0.4s ease;
+    box-shadow: 0 0 14px #e6b86f;
+  }
+
+  /* Shard count — right edge */
+  #shards {
+    position: absolute; right: 14px; top: 50%; transform: translateY(-50%);
+    display: flex; flex-direction: column; gap: 8px;
+  }
+  .shard {
+    width: 10px; height: 10px;
+    border: 1px solid rgba(255,255,255,0.18);
+    transform: rotate(45deg);
+    background: transparent;
+    transition: all 0.5s ease;
+  }
+  .shard.filled {
+    background: #b392e0;
+    border-color: #b392e0;
+    box-shadow: 0 0 12px #b392e0;
+  }
+
+  /* ECHO whisper line */
+  #echo {
+    position: absolute;
+    left: 50%; bottom: 12vh; transform: translateX(-50%);
+    font-size: clamp(14px, 2vw, 18px); letter-spacing: 0.05em;
+    color: #c8d1de; opacity: 0; transition: opacity 0.8s ease;
+    font-style: italic; text-shadow: 0 0 18px rgba(120,160,200,0.4);
+    pointer-events: none; white-space: nowrap;
+  }
+  #echo.show { opacity: 0.9; }
+
+  /* Title / start screen */
+  #screen {
+    position: absolute; inset: 0; z-index: 10;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: #04060a;
+    transition: opacity 0.8s ease;
+  }
+  #screen.fade { opacity: 0; pointer-events: none; }
+  #screen h1 { font-size: clamp(32px, 6vw, 52px); font-weight: 300; letter-spacing: 0.35em; color: #b8c4d4; margin-bottom: 0.4em; }
+  #screen .sub { font-size: clamp(12px, 1.6vw, 14px); color: #6b7484; letter-spacing: 0.3em; font-style: italic; margin-bottom: 4em; }
+  #screen .cta { font-size: 13px; letter-spacing: 0.35em; color: #a0acba; animation: breathe 1.8s ease-in-out infinite; padding: 14px 36px; border: 1px solid rgba(255,255,255,0.15); border-radius: 999px; }
+  @keyframes breathe { 0%,100% { opacity: 0.45; } 50% { opacity: 1; } }
+
+  /* Soft fail — no punchy black, just gentle dim via vignette */
+  #fail-flash {
+    position: absolute; inset: 0;
+    background: radial-gradient(ellipse at center, transparent 25%, rgba(10,14,22,0.85) 100%);
+    opacity: 0;
+    pointer-events: none; z-index: 8; transition: opacity 0.6s ease;
+  }
+  #fail-flash.show { opacity: 1; }
+  #fail-text {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+    font-size: clamp(14px, 1.8vw, 17px); letter-spacing: 0.18em;
+    color: #a0acba; opacity: 0; pointer-events: none; z-index: 9;
+    transition: opacity 0.5s ease; font-style: italic;
+  }
+  #fail-text.show { opacity: 0.7; }
+
+  /* Shard captured banner */
+  #shard-banner {
+    position: absolute; left: 50%; top: 50%; transform: translate(-50%,-50%);
+    text-align: center; opacity: 0; pointer-events: none; z-index: 9;
+    transition: opacity 1s ease; width: 90%; max-width: 500px;
+  }
+  #shard-banner.show { opacity: 1; }
+  #shard-banner .gem { font-size: 56px; color: #b392e0; text-shadow: 0 0 30px #b392e0; line-height: 1; margin-bottom: 16px; }
+  #shard-banner .label { font-size: 14px; letter-spacing: 0.35em; color: #c8d1de; margin-bottom: 24px; }
+  #shard-banner .memory { font-size: clamp(15px, 2.2vw, 19px); color: #e6d8b8; font-style: italic; line-height: 1.6; letter-spacing: 0.02em; min-height: 1.6em; }
+
+  /* Story card — full-screen text overlay between runs / on opening / on close */
+  #story {
+    position: absolute; inset: 0; z-index: 11;
+    background: #04060a;
+    display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 0 8vw;
+    opacity: 0; pointer-events: none;
+    transition: opacity 1.4s ease;
+  }
+  #story.show { opacity: 1; pointer-events: auto; }
+  #story .lines {
+    text-align: center;
+    max-width: 540px;
+  }
+  #story .line {
+    display: block;
+    font-size: clamp(16px, 2.6vw, 22px);
+    color: #d6dbe4;
+    line-height: 1.7;
+    letter-spacing: 0.03em;
+    margin: 0.5em 0;
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 1.2s ease, transform 1.2s ease;
+  }
+  #story .line.in { opacity: 0.92; transform: translateY(0); }
+  #story .line.dim { color: #6b7484; font-style: italic; font-size: clamp(13px, 1.8vw, 16px); }
+  #story .line.name {
+    color: #e6b86f; font-size: clamp(20px, 3.2vw, 28px); letter-spacing: 0.18em;
+    margin: 1em 0;
+  }
+  #story .cta {
+    margin-top: 4em; font-size: 12px; letter-spacing: 0.35em; color: #8a93a3;
+    animation: breathe 1.8s ease-in-out infinite;
+    opacity: 0; transition: opacity 1s ease;
+  }
+  #story .cta.in { opacity: 0.8; }
+
+  /* "Watch" / "ready" pill cue — soft, never demanding */
+  #phase-cue {
+    position: absolute; left: 50%; top: 14vh; transform: translateX(-50%);
+    font-size: 10px; letter-spacing: 0.45em; color: #8a93a3;
+    padding: 6px 18px; border: 1px solid rgba(138,147,163,0.18); border-radius: 999px;
+    opacity: 0; transition: opacity 1s ease, color 0.8s ease, border-color 0.8s ease;
+    pointer-events: none; text-transform: lowercase; font-style: italic;
+  }
+  #phase-cue.show { opacity: 0.7; }
+  #phase-cue.play { color: #a8c4d8; border-color: rgba(168,196,216,0.45); box-shadow: 0 0 14px rgba(168,196,216,0.18); }
+</style>
+</head>
+<body>
+
+<div id="screen">
+  <h1>MEMORIA</h1>
+  <div class="sub">memory runner — chapter i</div>
+  <div class="cta">— tap to run —</div>
+</div>
+
+<div id="hud">
+  <div id="light-meter"><div id="light-meter-fill"></div></div>
+  <div id="shards"></div>
+  <div id="echo"></div>
+</div>
+<div id="fail-flash"></div>
+<div id="fail-text">slipped.</div>
+<div id="shard-banner">
+  <div class="gem">◆</div>
+  <div class="label">memory captured</div>
+  <div class="memory" id="shard-memory"></div>
+</div>
+
+<div id="story">
+  <div class="lines" id="story-lines"></div>
+  <div class="cta" id="story-cta">— tap to continue —</div>
+</div>
+
+<div id="phase-cue"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
+<script>
+/* ============================================================
+   MEMORIA — MEMORY RUNNER (Chapter 1: Lethe City)
+   Mechanic: on-rails first-person runner. Sequence flashes
+   in path → reach gate → tap colored orbs in remembered order.
+   Working memory (Barkley, primary) is the only verb.
+   Designed for the nephew test: instant action, fast restart,
+   visible growth, no shame.
+   ============================================================ */
+
+const ORBS = [
+  { name: 'cyan',    color: 0x6fd9e6, freq: 523.25 },
+  { name: 'violet',  color: 0xb392e0, freq: 415.30 },
+  { name: 'emerald', color: 0x7ec894, freq: 329.63 },
+  { name: 'amber',   color: 0xe6b86f, freq: 440.00 },
+  { name: 'rose',    color: 0xe69cb8, freq: 587.33 },
+];
+
+// ECHO bank — short reactions during run. Soft, curious, never urgent.
+const ECHO = {
+  runStart:   ["...okay.", "ready when you are.", "I'm here."],
+  passShort:  ["yes.", "soft.", "...there.", "mm.", ""],
+  passLong:   ["that's a nice one.", "I like that.", "warm."],
+  fail:       ["...okay.", "no rush.", "again, gently.", "we have time."],
+  shard:      ["oh — hello.", "there you are.", "I knew this one."],
+  hub:        ["a little brighter.", "the street is humming.", "one more, when you want."],
+};
+function pick(arr) { return arr[Math.floor(Math.random()*arr.length)]; }
+
+// =====================================================================
+// STORY SCRIPT — Chapter 1: Lethe City
+// Protagonist: "she" (unnamed). Lost person: a close friend (ambiguous).
+// Reveal: their name is Sam. Each shard returns a fragment of memory.
+// =====================================================================
+const STORY = {
+  opening: [
+    { text: "The city forgets things now." },
+    { text: "Most people don't notice.", dim: true },
+    { text: "She does.", dim: false },
+    { text: "" },
+    { text: "Tonight she's looking for someone.", dim: true },
+    { text: "Tonight she remembers how.", dim: false },
+  ],
+  // Mid-run ECHO story lines — companion-curious, never pleading.
+  midRun: [
+    // Run 1 (working toward shard 1)
+    { gate: 2, line: "...I think they're up ahead." },
+    { gate: 4, line: "there's a humming. soft." },
+    // Run 2 (shard 2)
+    { gate: 2, line: "this part feels warm." },
+    { gate: 4, line: "oh — that's a color they liked." },
+    // Run 3 (shard 3)
+    { gate: 2, line: "the street is humming back." },
+    { gate: 4, line: "I think they're near." },
+    // Run 4 (shard 4)
+    { gate: 2, line: "almost. almost their voice." },
+    { gate: 4, line: "you're doing this gently. good." },
+    // Run 5 (shard 5)
+    { gate: 2, line: "yes. there." },
+    { gate: 4, line: "hi. it's you." },
+  ],
+  // Memory line shown on each shard capture — joys, not griefs.
+  shardMemory: [
+    "their name started with an S.",
+    "the song they hummed when no one watched.",
+    "the way they laughed at my bad jokes.",
+    "the warmest day that summer.",
+    "", // shard 5 is the full reveal — handled in closing card
+  ],
+  // Brief between-run line (shown over hub screen)
+  betweenRun: [
+    "one piece. take your time.",
+    "two. she's smiling, I think.",
+    "three. it's coming back warm.",
+    "four. she can almost see them.",
+  ],
+  // Final closing after shard 5
+  closing: [
+    { text: "5 of 5 returned.", dim: true },
+    { text: "" },
+    { text: "Their name is Sam.", name: true },
+    { text: "Not \"was\" — is.", dim: true },
+    { text: "" },
+    { text: "They said: \"I'll see you in the next street.\"" },
+    { text: "And there they are.", dim: false },
+    { text: "" },
+    { text: "tomorrow night — the next street.", dim: true },
+  ],
+};
+
+// Build mid-run lookup: midRun[runIdx][gateIdx] → line
+const MID_RUN_LOOKUP = {};
+STORY.midRun.forEach((entry, i) => {
+  const runIdx = Math.floor(i / 2);
+  if (!MID_RUN_LOOKUP[runIdx]) MID_RUN_LOOKUP[runIdx] = {};
+  MID_RUN_LOOKUP[runIdx][entry.gate] = entry.line;
+});
+
+// ============= Three.js scene =============
+const scene = new THREE.Scene();
+scene.fog = new THREE.FogExp2(0x04060a, 0.045);
+
+const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 200);
+camera.position.set(0, 1.7, 0);
+
+const renderer = new THREE.WebGLRenderer({ antialias: true });
+renderer.setSize(window.innerWidth, window.innerHeight);
+renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+renderer.setClearColor(0x04060a, 1);
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.1;
+document.body.appendChild(renderer.domElement);
+
+// ============= Post-processing pipeline =============
+const composer = new THREE.EffectComposer(renderer);
+composer.setSize(window.innerWidth, window.innerHeight);
+composer.addPass(new THREE.RenderPass(scene, camera));
+
+// Bloom — the single biggest visual upgrade. Soft, dreamy, not blown out.
+const bloomPass = new THREE.UnrealBloomPass(
+  new THREE.Vector2(window.innerWidth, window.innerHeight),
+  0.85,   // strength
+  0.55,   // radius
+  0.20    // threshold — pixels brighter than this glow
+);
+composer.addPass(bloomPass);
+
+// Cinematic pass — film grain + radial chromatic aberration + vignette
+const CinematicShader = {
+  uniforms: {
+    tDiffuse:        { value: null },
+    time:            { value: 0 },
+    grainStrength:   { value: 0.035 },
+    vignetteStrength:{ value: 0.55 },
+    chromaStrength:  { value: 0.0014 },
+  },
+  vertexShader: `
+    varying vec2 vUv;
+    void main() {
+      vUv = uv;
+      gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0);
+    }
+  `,
+  fragmentShader: `
+    uniform sampler2D tDiffuse;
+    uniform float time;
+    uniform float grainStrength;
+    uniform float vignetteStrength;
+    uniform float chromaStrength;
+    varying vec2 vUv;
+
+    float rand(vec2 st) {
+      return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123);
+    }
+
+    void main() {
+      vec2 uv = vUv;
+      vec2 center = uv - 0.5;
+      float dist = length(center);
+
+      // Radial chromatic aberration — stronger at edges
+      float ca = chromaStrength * (0.4 + dist);
+      float r = texture2D(tDiffuse, uv + center * ca).r;
+      float g = texture2D(tDiffuse, uv).g;
+      float b = texture2D(tDiffuse, uv - center * ca).b;
+      vec3 color = vec3(r, g, b);
+
+      // Film grain — animated, monochrome
+      float grain = rand(uv + fract(time)) - 0.5;
+      color += grain * grainStrength;
+
+      // Vignette — soft falloff
+      float vig = smoothstep(0.85, 0.25, dist);
+      color *= mix(1.0 - vignetteStrength, 1.0, vig);
+
+      gl_FragColor = vec4(color, 1.0);
+    }
+  `
+};
+const cinematicPass = new THREE.ShaderPass(CinematicShader);
+cinematicPass.renderToScreen = true;
+composer.addPass(cinematicPass);
+
+window.addEventListener('resize', () => {
+  camera.aspect = window.innerWidth/window.innerHeight;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
+  bloomPass.setSize(window.innerWidth, window.innerHeight);
+});
+
+// Lighting
+scene.add(new THREE.AmbientLight(0x4a5a78, 0.7));
+const torch = new THREE.PointLight(0xe6b86f, 2.5, 28, 1.4);
+torch.position.set(0, 2, 0);
+scene.add(torch);
+// Forward fill so things ahead are readable
+const forwardLight = new THREE.PointLight(0x6890b0, 1.0, 40, 1.6);
+forwardLight.position.set(0, 3, 0);
+scene.add(forwardLight);
+
+// ============= Procedural corridor =============
+// The world is endless: we generate tiles ahead, recycle behind.
+const TILE_SIZE = 4;
+const CORRIDOR_W = 3; // tiles wide each side
+const tilePool = [];
+const ruinPool = [];
+
+function makeTile(z) {
+  const g = new THREE.Group();
+  // Floor — wet-stone, reflective enough to catch the orbs
+  for (let dx = -1; dx <= 1; dx++) {
+    const slab = new THREE.Mesh(
+      new THREE.BoxGeometry(TILE_SIZE*0.95, 0.2, TILE_SIZE*0.95),
+      new THREE.MeshStandardMaterial({
+        color: 0x161e2e, emissive: 0x0a1018, emissiveIntensity: 0.6,
+        roughness: 0.32, metalness: 0.7,
+      })
+    );
+    slab.position.set(dx * TILE_SIZE, -0.1, 0);
+    g.add(slab);
+  }
+  // Edge rails — glowing cyan lines either side of path
+  for (const side of [-1, 1]) {
+    const rail = new THREE.Mesh(
+      new THREE.BoxGeometry(0.12, 0.08, TILE_SIZE),
+      new THREE.MeshBasicMaterial({ color: 0x6890b0, transparent: true, opacity: 0.85 })
+    );
+    rail.position.set(side * 1.5 * TILE_SIZE, 0.06, 0);
+    g.add(rail);
+  }
+  // Center dashed line — runner feel
+  const dash = new THREE.Mesh(
+    new THREE.BoxGeometry(0.06, 0.04, TILE_SIZE * 0.4),
+    new THREE.MeshBasicMaterial({ color: 0xa0b8d0, transparent: true, opacity: 0.35 })
+  );
+  dash.position.set(0, 0.02, 0);
+  g.add(dash);
+  g.position.z = z;
+  return g;
+}
+
+function makeRuin(z) {
+  const g = new THREE.Group();
+  const side = Math.random() < 0.5 ? -1 : 1;
+  const distance = (CORRIDOR_W + 2 + Math.random() * 4) * TILE_SIZE * side;
+  for (let i = 0; i < 3; i++) {
+    const w = 1 + Math.random()*2;
+    const h = 3 + Math.random()*8;
+    const d = 1 + Math.random()*2;
+    const ruin = new THREE.Mesh(
+      new THREE.BoxGeometry(w, h, d),
+      new THREE.MeshBasicMaterial({ color: 0x080c14, fog: true })
+    );
+    ruin.position.set(distance + (Math.random()-0.5)*4, h/2 - 0.5, z + (Math.random()-0.5)*TILE_SIZE);
+    // Some ruins get a faint lit window
+    if (Math.random() < 0.35) {
+      const win = new THREE.Mesh(
+        new THREE.PlaneGeometry(0.3, 0.5),
+        new THREE.MeshBasicMaterial({ color: 0xe6b86f, transparent: true, opacity: 0 })
+      );
+      win.position.set(0, h*0.3 - h/2 + 1.5, d/2 + 0.01);
+      win.userData.isWindow = true;
+      ruin.add(win);
+    }
+    g.add(ruin);
+  }
+  return g;
+}
+
+// Initialize corridor
+const TILES_AHEAD = 8;
+const TILES_BEHIND = 2;
+let nextTileZ = TILE_SIZE * TILES_AHEAD * -1;
+for (let i = 0; i < TILES_AHEAD + TILES_BEHIND; i++) {
+  const z = (i - TILES_BEHIND) * -TILE_SIZE;
+  const tile = makeTile(z);
+  scene.add(tile);
+  tilePool.push(tile);
+  const ruin = makeRuin(z);
+  scene.add(ruin);
+  ruinPool.push(ruin);
+}
+
+// Ambient particles (drifting motes)
+function makeParticles(count, range, color, size, opacity) {
+  const g = new THREE.BufferGeometry();
+  const pos = new Float32Array(count*3);
+  for (let i = 0; i < count; i++) {
+    pos[i*3] = (Math.random()-0.5) * range;
+    pos[i*3+1] = Math.random() * 8 + 0.5;
+    pos[i*3+2] = (Math.random()-0.5) * range;
+  }
+  g.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+  const m = new THREE.PointsMaterial({
+    color, size, transparent: true, opacity,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+  });
+  return new THREE.Points(g, m);
+}
+const motes = makeParticles(280, 80, 0xa0b8d0, 0.06, 0.5);
+scene.add(motes);
+
+// Embers — warm amber, rise faster, fewer
+const embers = makeParticles(90, 50, 0xe69b6f, 0.07, 0.8);
+embers.geometry.userData = { kind: 'ember' };
+scene.add(embers);
+
+// Fireflies — bright tiny yellows that drift with sin-wave motion
+const fireflies = makeParticles(50, 40, 0xf5d89a, 0.1, 1.0);
+fireflies.material.size = 0.12;
+fireflies.geometry.userData = {
+  kind: 'firefly',
+  phases: new Float32Array(50 * 2).map(() => Math.random() * Math.PI * 2),
+};
+scene.add(fireflies);
+
+// Far horizon motes — depth layer, very faint
+const distantMotes = makeParticles(140, 140, 0x6890b0, 0.04, 0.3);
+scene.add(distantMotes);
+
+// ============= Orb factory =============
+function makeOrb(colorHex, scale=1) {
+  const g = new THREE.Group();
+  const c = new THREE.Color(colorHex);
+  const core = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(0.32*scale, 1),
+    new THREE.MeshStandardMaterial({ color: c, emissive: c, emissiveIntensity: 1.2, roughness: 0.3 })
+  );
+  g.add(core);
+  const inner = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(0.52*scale, 1),
+    new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.3, blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  g.add(inner);
+  const outer = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(0.9*scale, 1),
+    new THREE.MeshBasicMaterial({ color: c, transparent: true, opacity: 0.1, blending: THREE.AdditiveBlending, depthWrite: false })
+  );
+  g.add(outer);
+
+  // Sprite halo
+  const cnv = document.createElement('canvas');
+  cnv.width = cnv.height = 128;
+  const ctx = cnv.getContext('2d');
+  const grad = ctx.createRadialGradient(64,64,4,64,64,64);
+  grad.addColorStop(0, `rgba(${(c.r*255)|0},${(c.g*255)|0},${(c.b*255)|0},0.95)`);
+  grad.addColorStop(0.4, `rgba(${(c.r*255)|0},${(c.g*255)|0},${(c.b*255)|0},0.25)`);
+  grad.addColorStop(1, 'rgba(0,0,0,0)');
+  ctx.fillStyle = grad; ctx.fillRect(0,0,128,128);
+  const halo = new THREE.Sprite(new THREE.SpriteMaterial({
+    map: new THREE.CanvasTexture(cnv), transparent: true,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+  }));
+  halo.scale.set(2.6*scale, 2.6*scale, 1);
+  g.add(halo);
+
+  g.userData = { core, inner, outer, halo, color: c };
+  return g;
+}
+
+function setOrbBrightness(orb, b) {
+  orb.userData.core.material.emissiveIntensity = 0.3 + b * 2.0;
+  orb.userData.inner.material.opacity = 0.1 + b * 0.5;
+  orb.userData.outer.material.opacity = 0.04 + b * 0.25;
+  orb.userData.halo.material.opacity = b * 0.9;
+}
+
+// ============= Particle burst pool =============
+const burstPool = [];
+function spawnBurst(pos, colorHex, count=30) {
+  const g = new THREE.BufferGeometry();
+  const p = new Float32Array(count*3);
+  const v = new Float32Array(count*3);
+  for (let i = 0; i < count; i++) {
+    p[i*3] = pos.x; p[i*3+1] = pos.y; p[i*3+2] = pos.z;
+    const th = Math.random()*Math.PI*2;
+    const ph = Math.acos(2*Math.random()-1);
+    const s = 0.05 + Math.random()*0.08;
+    v[i*3]   = Math.sin(ph)*Math.cos(th)*s;
+    v[i*3+1] = Math.cos(ph)*s;
+    v[i*3+2] = Math.sin(ph)*Math.sin(th)*s;
+  }
+  g.setAttribute('position', new THREE.BufferAttribute(p, 3));
+  const m = new THREE.PointsMaterial({
+    color: colorHex, size: 0.14, transparent: true, opacity: 1,
+    blending: THREE.AdditiveBlending, depthWrite: false,
+  });
+  const pts = new THREE.Points(g, m);
+  pts.userData = { vel: v, life: 1 };
+  scene.add(pts);
+  burstPool.push(pts);
+}
+
+// ============= Audio =============
+let actx = null;
+function initAudio() {
+  if (actx) return;
+  actx = new (window.AudioContext || window.webkitAudioContext)();
+}
+function tone(freq, dur=0.3, type='sine', vol=0.15, delay=0) {
+  if (!actx) return;
+  const t0 = actx.currentTime + delay;
+  const osc = actx.createOscillator();
+  const g = actx.createGain();
+  osc.type = type; osc.frequency.value = freq;
+  g.gain.setValueAtTime(0, t0);
+  g.gain.linearRampToValueAtTime(vol, t0 + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.001, t0 + dur);
+  osc.connect(g).connect(actx.destination);
+  osc.start(t0); osc.stop(t0 + dur);
+}
+function failWash() {
+  // Single soft warm exhale. No descending minor wash.
+  if (!actx) return;
+  tone(174.6, 0.9, 'sine', 0.05);
+}
+function shardSound() {
+  if (!actx) return;
+  [523, 659, 784, 1046].forEach((f,i) => tone(f, 0.6, 'sine', 0.12, i*0.08));
+}
+function startSound() {
+  if (!actx) return;
+  tone(110, 0.4, 'sine', 0.1);
+  tone(220, 0.4, 'sine', 0.08, 0.05);
+}
+
+// ============= Run state =============
+const STATE = {
+  HUB: 'hub',
+  RUN_INTRO: 'run_intro',
+  WINDOW: 'window',     // showing sequence
+  GAP: 'gap',           // running between
+  GATE: 'gate',         // player input
+  GATE_PASS: 'gate_pass',
+  GATE_FAIL: 'gate_fail',
+  SHARD: 'shard',
+};
+
+const game = {
+  state: STATE.HUB,
+  started: false,
+  runSpeed: 0,           // current forward speed
+  baseSpeed: 3.8,        // units/sec — walk pace, never rushy
+  sequence: [],          // current memory sequence
+  playerIndex: 0,        // index into sequence player is tapping
+  gateOrbs: [],          // orbs at the current gate (5 colored buttons)
+  windowOrbs: [],        // orbs showing the sequence
+  gatesPassed: 0,
+  gatesPerRun: 6,
+  seqLen: 2,
+  successHistory: [],
+  shardsCaptured: 0,
+  totalShards: 5,
+  lightLevel: 0,         // 0..1 — light meter
+  lastShown: 0,
+  echoTimeout: null,
+};
+
+// ============= HUD helpers =============
+const echoEl = document.getElementById('echo');
+function sayEcho(text, dur=2500) {
+  clearTimeout(game.echoTimeout);
+  if (!text) { echoEl.classList.remove('show'); return; }
+  echoEl.textContent = text;
+  echoEl.classList.add('show');
+  game.echoTimeout = setTimeout(() => echoEl.classList.remove('show'), dur);
+}
+
+function setLight(v) {
+  game.lightLevel = Math.max(0, Math.min(1, v));
+  document.getElementById('light-meter-fill').style.height = (game.lightLevel * 100) + '%';
+  torch.intensity = 1.0 + game.lightLevel * 2.0;
+  torch.distance = 18 + game.lightLevel * 16;
+}
+
+function initShardsHUD() {
+  const c = document.getElementById('shards');
+  c.innerHTML = '';
+  for (let i = 0; i < game.totalShards; i++) {
+    const d = document.createElement('div');
+    d.className = 'shard';
+    c.appendChild(d);
+  }
+}
+function updateShardsHUD() {
+  const cs = document.querySelectorAll('.shard');
+  cs.forEach((el, i) => el.classList.toggle('filled', i < game.shardsCaptured));
+}
+initShardsHUD();
+setLight(0.1);
+
+function showFailFlash() {
+  // Gentle vignette + soft text. Never punches.
+  const f = document.getElementById('fail-flash');
+  const t = document.getElementById('fail-text');
+  t.textContent = pick(['it slipped. no rush.', 'try again, gently.', '...we have time.']);
+  f.classList.add('show');
+  t.classList.add('show');
+  setTimeout(() => { f.classList.remove('show'); t.classList.remove('show'); }, 1500);
+}
+
+function showShardBanner(memoryLine='') {
+  const b = document.getElementById('shard-banner');
+  document.getElementById('shard-memory').textContent = memoryLine || '';
+  b.classList.add('show');
+  setTimeout(() => b.classList.remove('show'), 3200);
+}
+
+// Story card — show a sequence of lines, then a tap-to-continue CTA
+let storyCardResolver = null;
+function showStoryCard(lines, onTap) {
+  const story = document.getElementById('story');
+  const linesEl = document.getElementById('story-lines');
+  const cta = document.getElementById('story-cta');
+  linesEl.innerHTML = '';
+  cta.classList.remove('in');
+
+  // Build line elements
+  lines.forEach((entry) => {
+    const div = document.createElement('div');
+    div.className = 'line';
+    if (entry.dim) div.classList.add('dim');
+    if (entry.name) div.classList.add('name');
+    div.textContent = entry.text || ' ';
+    linesEl.appendChild(div);
+  });
+
+  story.classList.add('show');
+
+  // Stagger fade-in
+  const lineEls = linesEl.querySelectorAll('.line');
+  lineEls.forEach((el, i) => {
+    setTimeout(() => el.classList.add('in'), 400 + i * 700);
+  });
+  // CTA appears after last line
+  setTimeout(() => cta.classList.add('in'), 400 + lineEls.length * 700 + 400);
+
+  storyCardResolver = () => {
+    story.classList.remove('show');
+    storyCardResolver = null;
+    setTimeout(onTap, 900);
+  };
+}
+
+// Phase cue (watch / your turn pill)
+const phaseCueEl = document.getElementById('phase-cue');
+let phaseCueHide = null;
+function setPhaseCue(text, isPlay, dur=1500) {
+  clearTimeout(phaseCueHide);
+  phaseCueEl.textContent = text;
+  phaseCueEl.classList.toggle('play', !!isPlay);
+  phaseCueEl.classList.add('show');
+  phaseCueHide = setTimeout(() => phaseCueEl.classList.remove('show'), dur);
+}
+
+// Gentle two-note invitation — "ready" cue. Soft, not triumphant.
+function readySound() {
+  if (!actx) return;
+  [329, 415].forEach((f,i) => tone(f, 0.6, 'sine', 0.06, i*0.18));
+}
+// Low warm tone — "watch" cue. A whisper, not a warning.
+function watchSound() {
+  if (!actx) return;
+  tone(196, 0.7, 'sine', 0.05);
+}
+
+// ============= Tile recycling =============
+function recycleTiles() {
+  // If camera passed a tile far enough, move it to the front
+  tilePool.forEach((tile, i) => {
+    if (camera.position.z - tile.position.z < -(TILES_BEHIND * TILE_SIZE)) {
+      // Move to far ahead
+      let minZ = Math.min(...tilePool.map(t => t.position.z));
+      tile.position.z = minZ - TILE_SIZE;
+      const ruin = ruinPool[i];
+      ruin.position.z = tile.position.z;
+      // Re-randomize ruins slightly
+      ruin.children.forEach(child => {
+        if (Math.random() < 0.3) {
+          child.position.x += (Math.random()-0.5) * 2;
+        }
+      });
+    }
+  });
+  ruinPool.forEach((ruin, i) => {
+    if (camera.position.z - ruin.position.z < -(TILES_BEHIND * TILE_SIZE)) {
+      let minZ = Math.min(...ruinPool.map(r => r.position.z));
+      ruin.position.z = minZ - TILE_SIZE;
+    }
+  });
+  // Light some windows progressively based on shards captured
+  ruinPool.forEach(ruin => {
+    ruin.children.forEach(piece => {
+      piece.children.forEach(child => {
+        if (child.userData && child.userData.isWindow) {
+          const target = game.shardsCaptured / game.totalShards * 0.8;
+          child.material.opacity += (target - child.material.opacity) * 0.05;
+        }
+      });
+    });
+  });
+}
+
+// ============= Sequence / Gate spawning =============
+const orbGroup = new THREE.Group();
+scene.add(orbGroup);
+
+function clearWindowOrbs() {
+  game.windowOrbs.forEach(o => orbGroup.remove(o));
+  game.windowOrbs = [];
+}
+function clearGateOrbs() {
+  game.gateOrbs.forEach(o => orbGroup.remove(o));
+  game.gateOrbs = [];
+}
+
+function generateSequence(len) {
+  const seq = [];
+  for (let i = 0; i < len; i++) {
+    let idx;
+    do { idx = Math.floor(Math.random()*5); } while (i > 0 && idx === seq[i-1]);
+    seq.push(idx);
+  }
+  return seq;
+}
+
+function spawnWindow(seq, zCenter) {
+  // Show sequence as orbs floating above the path, flashing in order
+  clearWindowOrbs();
+  const spacing = 1.2;
+  const totalW = (seq.length - 1) * spacing;
+  seq.forEach((idx, i) => {
+    const orb = makeOrb(ORBS[idx].color, 0.85);
+    orb.position.set(-totalW/2 + i*spacing, 2.4, zCenter);
+    setOrbBrightness(orb, 0.05);
+    orb.userData.spec = ORBS[idx];
+    orb.userData.seqIndex = i;
+    orbGroup.add(orb);
+    game.windowOrbs.push(orb);
+  });
+  // Light them in order with timing
+  const interval = Math.max(360, 700 - game.successHistory.length * 18); // gets faster with success
+  seq.forEach((idx, i) => {
+    setTimeout(() => {
+      if (game.state !== STATE.WINDOW) return;
+      const orb = game.windowOrbs[i];
+      if (!orb) return;
+      // bright pulse
+      const t0 = performance.now();
+      const dur = interval * 0.6;
+      function step() {
+        const t = (performance.now() - t0)/dur;
+        if (t >= 1) { setOrbBrightness(orb, 0.05); return; }
+        const e = Math.sin(t * Math.PI); // up and back
+        setOrbBrightness(orb, 0.05 + e * 0.95);
+        requestAnimationFrame(step);
+      }
+      step();
+      tone(ORBS[idx].freq, 0.32, 'sine', 0.16);
+    }, i * interval + 200);
+  });
+}
+
+function spawnGate(seq, zCenter) {
+  // 5 orbs in a row across the path — buttons to tap in order
+  clearGateOrbs();
+  const order = [0,1,2,3,4]; // always show all 5 colors so memory work is real
+  // Shuffle so positions vary
+  for (let i = order.length-1; i > 0; i--) {
+    const j = Math.floor(Math.random()*(i+1));
+    [order[i],order[j]] = [order[j],order[i]];
+  }
+  const spacing = 2.0;
+  const totalW = (order.length - 1) * spacing;
+  order.forEach((idx, i) => {
+    const orb = makeOrb(ORBS[idx].color, 0.8);
+    orb.position.set(-totalW/2 + i*spacing, 1.6, zCenter);
+    // SPAWN DIM — watch phase, not your turn yet
+    setOrbBrightness(orb, 0.12);
+    orb.userData.spec = ORBS[idx];
+    orb.userData.colorIndex = idx;
+    orb.userData.tapped = false;
+    orb.userData.basePhase = Math.random()*Math.PI*2;
+    orb.userData.baseY = 1.6;
+    orb.userData.gateScale = 0.8;
+    orbGroup.add(orb);
+    game.gateOrbs.push(orb);
+  });
+}
+
+// Animate gate orbs from dim to bright, with scale-up swell — "your turn" signal
+function activateGateOrbs() {
+  readySound();
+  setPhaseCue('ready', true, 3500);
+  game.gateOrbs.forEach((orb, i) => {
+    const start = performance.now() + i * 70;
+    const dur = 380;
+    (function step() {
+      const t = Math.max(0, Math.min(1, (performance.now() - start) / dur));
+      const e = 1 - Math.pow(1 - t, 3);
+      setOrbBrightness(orb, 0.12 + e * 0.55);
+      const s = 1 + e * 0.18; // gentle swell
+      orb.scale.setScalar(s);
+      if (t < 1) requestAnimationFrame(step);
+    })();
+  });
+}
+
+// ============= Run flow =============
+function startRun() {
+  game.state = STATE.RUN_INTRO;
+  game.gatesPassed = 0;
+  game.playerIndex = 0;
+  game.runSpeed = game.baseSpeed;
+  clearWindowOrbs();
+  clearGateOrbs();
+  setLight(0.15);
+  startSound();
+  sayEcho(pick(ECHO.runStart), 1600);
+  setTimeout(scheduleNextWindow, 600);
+}
+
+function currentRunIdx() {
+  // Run index 0..4 — tied to next shard to capture
+  return game.shardsCaptured;
+}
+
+function scheduleNextWindow() {
+  if (game.state === STATE.SHARD || game.state === STATE.HUB) return;
+
+  // Spawn a sequence window ~10 units ahead
+  const seq = generateSequence(game.seqLen);
+  game.sequence = seq;
+  const zCenter = camera.position.z - 14;
+  spawnWindow(seq, zCenter);
+  game.state = STATE.WINDOW;
+
+  // WATCH phase cue + sound
+  watchSound();
+  setPhaseCue('watch', false, 2400);
+
+  // Spawn gate (dim) further ahead — visible but clearly "not active yet"
+  const gateZ = camera.position.z - 24;
+  spawnGate(seq, gateZ);
+
+  // After window plays out, transition to GAP, then GATE
+  const interval = Math.max(360, 700 - game.successHistory.length * 18);
+  const windowDur = seq.length * interval + 400;
+  setTimeout(() => {
+    if (game.state === STATE.SHARD || game.state === STATE.HUB) return;
+    game.state = STATE.GAP;
+    // Dissolve sequence orbs
+    game.windowOrbs.forEach((orb, i) => {
+      const start = performance.now();
+      (function fade() {
+        const t = Math.min(1, (performance.now() - start) / 500);
+        setOrbBrightness(orb, (1-t) * 0.05);
+        orb.scale.setScalar(1 - t * 0.5);
+        if (t >= 1) { orbGroup.remove(orb); }
+        else requestAnimationFrame(fade);
+      })();
+    });
+    setTimeout(() => { game.windowOrbs = []; }, 520);
+
+    // Switch to GATE when camera arrives
+    const checkArrival = () => {
+      if (game.state === STATE.SHARD || game.state === STATE.HUB) return;
+      if (game.gateOrbs.length > 0 && camera.position.z - game.gateOrbs[0].position.z < 4) {
+        game.state = STATE.GATE;
+        game.playerIndex = 0;
+        // STOP at gate — player taps in remembered order to pass
+        game.runSpeed = 0;
+        // Gentle ease to gate — no snap. eased over ~700ms.
+        const targetZ = game.gateOrbs[0].position.z + 7.5;
+        const slideStart = performance.now();
+        const fromZ = camera.position.z;
+        const slideDur = 700;
+        (function slide() {
+          const t = Math.min(1, (performance.now() - slideStart) / slideDur);
+          const e = 1 - Math.pow(1 - t, 3); // easeOutCubic
+          camera.position.z = fromZ + (targetZ - fromZ) * e;
+          if (t < 1 && game.state === STATE.GATE) requestAnimationFrame(slide);
+        })();
+        // Once camera has settled, invite player
+        setTimeout(activateGateOrbs, 500);
+      } else {
+        requestAnimationFrame(checkArrival);
+      }
+    };
+    checkArrival();
+  }, windowDur);
+}
+
+function onGateHit(orb) {
+  if (game.state !== STATE.GATE) return;
+  if (orb.userData.tapped) return;
+
+  const expected = game.sequence[game.playerIndex];
+  const tapped = orb.userData.colorIndex;
+
+  // Always give feedback for the tap
+  spawnBurst(orb.position, orb.userData.color.getHex(), 22);
+  tone(orb.userData.spec.freq, 0.32, 'sine', 0.18);
+  setOrbBrightness(orb, 1.0);
+  orb.userData.tapped = true;
+  setTimeout(() => { if (!orb.userData.tapped) return; setOrbBrightness(orb, 0.3); }, 250);
+
+  if (tapped === expected) {
+    game.playerIndex++;
+    if (game.playerIndex >= game.sequence.length) {
+      onGatePass();
+    }
+  } else {
+    onGateFail();
+  }
+}
+
+function onGatePass() {
+  game.state = STATE.GATE_PASS;
+  game.gatesPassed++;
+  game.successHistory.push(1);
+  if (game.successHistory.length > 12) game.successHistory.shift();
+
+  // Big juice
+  game.gateOrbs.forEach(o => {
+    spawnBurst(o.position, o.userData.color.getHex(), 18);
+  });
+
+  // Light grows
+  setLight(game.lightLevel + 0.12);
+
+  // Mid-run story beat? (overrides the short ECHO reaction)
+  const runIdx = currentRunIdx();
+  const beat = MID_RUN_LOOKUP[runIdx] && MID_RUN_LOOKUP[runIdx][game.gatesPassed];
+  if (beat) {
+    sayEcho(beat, 3200);
+  } else if (Math.random() < 0.7) {
+    sayEcho(pick(ECHO.passShort), 1400);
+  } else {
+    sayEcho(pick(ECHO.passLong), 1800);
+  }
+
+  // Gentle resume — no rush.
+  game.runSpeed = game.baseSpeed * 0.9;
+  setTimeout(() => { game.runSpeed = game.baseSpeed; }, 1200);
+
+  // Adapt difficulty
+  adaptDifficulty();
+
+  // Continue
+  clearGateOrbs();
+  clearWindowOrbs();
+
+  if (game.gatesPassed >= game.gatesPerRun) {
+    setTimeout(triggerShard, 1000);
+  } else {
+    setTimeout(scheduleNextWindow, 800);
+  }
+}
+
+function onGateFail() {
+  game.state = STATE.GATE_FAIL;
+  game.successHistory.push(0);
+  if (game.successHistory.length > 12) game.successHistory.shift();
+  failWash();
+  showFailFlash();
+  setLight(Math.max(0.1, game.lightLevel - 0.1));
+
+  sayEcho(pick(ECHO.fail), 1800);
+  adaptDifficulty();
+
+  // Soft restart: gate clears, gentle resume after a real breath.
+  setTimeout(() => {
+    clearGateOrbs();
+    clearWindowOrbs();
+    game.runSpeed = game.baseSpeed;
+    if (game.state === STATE.GATE_FAIL) {
+      scheduleNextWindow();
+    }
+  }, 1700);
+}
+
+function adaptDifficulty() {
+  const hits = game.successHistory.filter(x => x === 1).length;
+  const tot = game.successHistory.length;
+  const rate = tot > 0 ? hits / tot : 0.5;
+  if (tot >= 3) {
+    if (rate > 0.85 && game.seqLen < 5) {
+      // Bump up occasionally
+      if (Math.random() < 0.4) game.seqLen++;
+    } else if (rate < 0.5 && game.seqLen > 2) {
+      game.seqLen--;
+    }
+  }
+}
+
+function triggerShard() {
+  game.state = STATE.SHARD;
+  game.shardsCaptured++;
+  updateShardsHUD();
+  game.runSpeed = 0;
+  shardSound();
+  // Memory fragment for this shard (1-indexed → 0-indexed array)
+  const memoryLine = STORY.shardMemory[game.shardsCaptured - 1] || '';
+  showShardBanner(memoryLine);
+  setLight(1.0);
+
+  sayEcho(pick(ECHO.shard), 2500);
+
+  setTimeout(() => {
+    if (game.shardsCaptured >= game.totalShards) {
+      chapterComplete();
+    } else {
+      goToHub();
+    }
+  }, 3600);
+}
+
+function goToHub() {
+  game.state = STATE.HUB;
+  // Between-run story line (shows behind hub screen as it appears)
+  const betweenLine = STORY.betweenRun[game.shardsCaptured - 1] || '';
+  setTimeout(() => {
+    const s = document.getElementById('screen');
+    s.querySelector('h1').textContent = '◆'.repeat(game.shardsCaptured);
+    s.querySelector('.sub').textContent = betweenLine || `${game.shardsCaptured} of ${game.totalShards}`;
+    s.querySelector('.cta').textContent = '— tap to run again —';
+    s.classList.remove('fade');
+  }, 1200);
+}
+
+function chapterComplete() {
+  game.state = STATE.HUB;
+  // Show closing story card
+  setTimeout(() => {
+    showStoryCard(STORY.closing, () => {
+      const s = document.getElementById('screen');
+      s.querySelector('h1').textContent = 'LETHE CITY';
+      s.querySelector('.sub').textContent = 'the city remembered itself';
+      s.querySelector('.cta').textContent = '— ii. coming soon —';
+      s.classList.remove('fade');
+    });
+  }, 800);
+}
+
+// ============= Input =============
+const raycaster = new THREE.Raycaster();
+const pointer = new THREE.Vector2();
+
+function handleTap(clientX, clientY) {
+  // If a story card is up, tap advances it
+  if (storyCardResolver) {
+    storyCardResolver();
+    return;
+  }
+  if (!game.started) {
+    beginGame();
+    return;
+  }
+  if (game.state === STATE.HUB) {
+    const s = document.getElementById('screen');
+    s.classList.add('fade');
+    setTimeout(startRun, 800);
+    return;
+  }
+  if (game.state !== STATE.GATE) return;
+
+  pointer.x = (clientX/window.innerWidth)*2 - 1;
+  pointer.y = -(clientY/window.innerHeight)*2 + 1;
+  raycaster.setFromCamera(pointer, camera);
+  const cores = game.gateOrbs.map(o => o.userData.core);
+  const hits = raycaster.intersectObjects(cores, false);
+  if (hits.length === 0) {
+    // Also test against larger glow spheres for forgiving touch
+    const inners = game.gateOrbs.map(o => o.userData.inner);
+    const altHits = raycaster.intersectObjects(inners, false);
+    if (altHits.length === 0) return;
+    const orb = game.gateOrbs.find(o => o.userData.inner === altHits[0].object);
+    if (orb) onGateHit(orb);
+    return;
+  }
+  const orb = game.gateOrbs.find(o => o.userData.core === hits[0].object);
+  if (orb) onGateHit(orb);
+}
+
+window.addEventListener('pointerdown', (ev) => {
+  const x = ev.clientX !== undefined ? ev.clientX : (ev.touches && ev.touches[0].clientX) || 0;
+  const y = ev.clientY !== undefined ? ev.clientY : (ev.touches && ev.touches[0].clientY) || 0;
+  handleTap(x, y);
+});
+
+function beginGame() {
+  initAudio();
+  game.started = true;
+  document.getElementById('screen').classList.add('fade');
+  // Show opening story card first
+  setTimeout(() => {
+    showStoryCard(STORY.opening, () => {
+      startRun();
+    });
+  }, 600);
+}
+
+// ============= Animation loop =============
+let lastT = performance.now();
+let runBob = 0;
+function animate() {
+  requestAnimationFrame(animate);
+  const now = performance.now();
+  const dt = Math.min(0.05, (now - lastT)/1000);
+  lastT = now;
+
+  // Forward motion
+  if (game.runSpeed > 0) {
+    camera.position.z -= game.runSpeed * dt;
+    // Subtle walk-bob (gentler than before)
+    runBob += dt * 3.5;
+    camera.position.y = 1.7 + Math.sin(runBob) * 0.03;
+    camera.rotation.z = Math.sin(runBob * 0.5) * 0.005;
+  }
+  torch.position.copy(camera.position);
+  forwardLight.position.set(camera.position.x, camera.position.y + 1, camera.position.z - 8);
+
+  // Recycle tiles
+  recycleTiles();
+
+  // Drift motes with camera
+  const mp = motes.geometry.attributes.position.array;
+  for (let i = 0; i < mp.length; i += 3) {
+    mp[i+1] += 0.003;
+    if (mp[i+1] > 9) mp[i+1] = 0.5;
+    // Recycle in z relative to camera
+    if (camera.position.z - mp[i+2] < -40) mp[i+2] -= 80;
+    if (camera.position.z - mp[i+2] > 40) mp[i+2] += 80;
+  }
+  motes.geometry.attributes.position.needsUpdate = true;
+
+  // Animate orbs gentle hover
+  [...game.windowOrbs, ...game.gateOrbs].forEach(orb => {
+    if (orb.userData.basePhase !== undefined) {
+      orb.userData.basePhase += dt * 1.5;
+      orb.position.y = (orb.userData.baseY || orb.position.y) + Math.sin(orb.userData.basePhase) * 0.06;
+    }
+    orb.rotation.y += dt * 0.6;
+  });
+
+  // Burst particles
+  for (let i = burstPool.length - 1; i >= 0; i--) {
+    const b = burstPool[i];
+    const p = b.geometry.attributes.position.array;
+    const v = b.userData.vel;
+    for (let j = 0; j < p.length; j += 3) {
+      p[j]   += v[j];
+      p[j+1] += v[j+1];
+      p[j+2] += v[j+2];
+      v[j+1] -= 0.0014;
+    }
+    b.geometry.attributes.position.needsUpdate = true;
+    b.userData.life -= dt * 1.3;
+    b.material.opacity = Math.max(0, b.userData.life);
+    if (b.userData.life <= 0) {
+      scene.remove(b);
+      b.geometry.dispose(); b.material.dispose();
+      burstPool.splice(i, 1);
+    }
+  }
+
+  renderer.render(scene, camera);
+}
+animate();
+</script>
+</body>
+</html>
