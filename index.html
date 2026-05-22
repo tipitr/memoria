@@ -18,13 +18,39 @@
 
   /* Companion whisper line */
   #whisper {
-    position: fixed; left: 50%; bottom: 10vh; transform: translateX(-50%);
+    position: fixed; left: 50%; bottom: 18vh; transform: translateX(-50%);
     font-size: clamp(14px, 2vw, 17px); letter-spacing: 0.04em;
     color: #e6d8c0; opacity: 0; transition: opacity 1.6s ease;
     font-style: italic; text-shadow: 0 0 18px rgba(230,184,111,0.25);
     pointer-events: none; z-index: 5;
+    text-align: center; max-width: 80vw;
   }
-  #whisper.show { opacity: 0.78; }
+  #whisper.show { opacity: 0.85; }
+
+  /* Quest action pills — appear under whisper when tiny quest is delivered */
+  #quest-actions {
+    position: fixed; left: 50%; bottom: 9vh; transform: translateX(-50%);
+    display: flex; gap: 14px;
+    opacity: 0; pointer-events: none; z-index: 6;
+    transition: opacity 0.9s ease;
+  }
+  #quest-actions.show { opacity: 1; pointer-events: auto; }
+  #quest-actions button {
+    appearance: none; background: rgba(20, 14, 10, 0.55);
+    border: 1px solid rgba(230, 216, 192, 0.22);
+    color: #e6d8c0;
+    font-family: inherit; font-style: italic; font-size: 13px;
+    letter-spacing: 0.15em; padding: 10px 22px;
+    border-radius: 999px; cursor: pointer;
+    transition: background 0.4s ease, border-color 0.4s ease, color 0.4s ease;
+    -webkit-tap-highlight-color: transparent;
+  }
+  #quest-actions button.done {
+    color: #f5d89a; border-color: rgba(245, 216, 154, 0.45);
+  }
+  #quest-actions button.done:hover { background: rgba(245, 216, 154, 0.12); }
+  #quest-actions button.skip { color: #8a8378; }
+  #quest-actions button.skip:hover { background: rgba(255,255,255,0.04); }
 
   /* Title — three softly fading screens, then dissolves into the room */
   #onboard {
@@ -71,6 +97,10 @@
 
 <div id="vignette"></div>
 <div id="whisper"></div>
+<div id="quest-actions">
+  <button class="done" id="quest-done">done</button>
+  <button class="skip" id="quest-skip">not yet</button>
+</div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
@@ -486,33 +516,36 @@ const WISP_COLORS = [
 ];
 
 function makeWisp(x, y, z, colorHex) {
-  // Visual
+  // Visual — bigger, more visible, clearly interactive
   const group = new THREE.Group();
   const color = new THREE.Color(colorHex);
   const core = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(0.07, 0),
+    new THREE.IcosahedronGeometry(0.1, 0),
     new THREE.MeshStandardMaterial({
-      color, emissive: color, emissiveIntensity: 2.5,
+      color, emissive: color, emissiveIntensity: 3.0,
       roughness: 0.4, flatShading: true,
     })
   );
   group.add(core);
   const glow = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(0.16, 0),
+    new THREE.IcosahedronGeometry(0.22, 0),
     new THREE.MeshBasicMaterial({
-      color, transparent: true, opacity: 0.35,
+      color, transparent: true, opacity: 0.5,
       blending: THREE.AdditiveBlending, depthWrite: false,
     })
   );
   group.add(glow);
   const halo = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(0.32, 0),
+    new THREE.IcosahedronGeometry(0.45, 0),
     new THREE.MeshBasicMaterial({
-      color, transparent: true, opacity: 0.12,
+      color, transparent: true, opacity: 0.18,
       blending: THREE.AdditiveBlending, depthWrite: false,
     })
   );
   group.add(halo);
+  // Tiny point light so wisp casts a soft colored glow on nearby surfaces
+  const wispLight = new THREE.PointLight(color, 0.4, 2.2, 2);
+  group.add(wispLight);
   group.position.set(x, y, z);
   scene.add(group);
 
@@ -538,11 +571,10 @@ function makeWisp(x, y, z, colorHex) {
   return wisp;
 }
 
-// Spawn 4 wisps drifting around the room
-makeWisp(-1.5, 1.6, -1.0, WISP_COLORS[0]);
-makeWisp(0.8, 1.9, -0.5, WISP_COLORS[1]);
-makeWisp(-0.2, 2.2, -2.0, WISP_COLORS[2]);
-makeWisp(2.2, 1.4, -1.2, WISP_COLORS[3]);
+// Spawn 3 wisps in the foreground so they're impossible to miss
+makeWisp(-1.5, 1.7, 0.6, WISP_COLORS[0]);
+makeWisp(1.6, 1.8, 0.4, WISP_COLORS[1]);
+makeWisp(-0.3, 2.0, -0.8, WISP_COLORS[2]);
 
 // Companion as a soft physics body (kinematic so script controls position
 // but it can exert attraction force on wisps)
@@ -562,16 +594,23 @@ let pullStrength = 0;
 
 window.addEventListener('pointerdown', (ev) => {
   if (!inRoom) { advanceOnboard(); return; }
+  // Ignore taps on quest-action pills — they have their own handlers
+  if (ev.target && ev.target.closest && ev.target.closest('#quest-actions')) return;
+
+  // Player took an action — cancel the first-time hint
+  if (firstHintPending) { clearTimeout(firstHintPending); firstHintPending = null; }
+
   const x = ev.clientX ?? (ev.touches && ev.touches[0].clientX) ?? 0;
   const y = ev.clientY ?? (ev.touches && ev.touches[0].clientY) ?? 0;
   pointer.x = (x / window.innerWidth) * 2 - 1;
   pointer.y = -(y / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
-  // Check all wisp glows (larger hitboxes)
-  const hits = raycaster.intersectObjects(wisps.map(w => w.group.children[1]), false);
+  // Check wisp halos (largest hitbox) for forgiving touch
+  const halos = wisps.map(w => w.group.children[2]).filter(Boolean);
+  const hits = raycaster.intersectObjects(halos, false);
   if (hits.length > 0) {
     const hit = hits[0].object;
-    pulledWisp = wisps.find(w => w.group.children[1] === hit);
+    pulledWisp = wisps.find(w => w.group.children[2] === hit);
     pullStrength = 1.0;
     whisper('mm. that one.', 2500);
   }
@@ -740,13 +779,17 @@ function advanceOnboard() {
   }
 }
 
+let firstHintPending = null;
 function enterRoom() {
   inRoom = true;
   initAudio();
   // First whisper — companion notices you
   setTimeout(() => whisper('oh — hi.', 4000), 2000);
-  setTimeout(() => whisper('the rain came back.', 5000), 8500);
-  setTimeout(() => whisper('the lamp is warm.', 5000), 16000);
+  // Gentle affordance hint — only if the player hasn't tapped a wisp by 7s
+  firstHintPending = setTimeout(() => {
+    whisper('there\'s one drifting. pull it closer.', 6000);
+    firstHintPending = null;
+  }, 7000);
 }
 
 // ===== Wisp crystallization =====
@@ -764,7 +807,6 @@ const TINY_QUESTS = [
 ];
 function crystallizeWisp(wisp) {
   // Burst the wisp's mesh
-  const burstColor = wisp.color.getHex();
   for (let i = 0; i < 18; i++) {
     const angle = (i/18) * Math.PI*2;
     const speed = 0.08 + Math.random()*0.05;
@@ -774,7 +816,7 @@ function crystallizeWisp(wisp) {
       Math.sin(angle) * speed
     );
   }
-  // Fade & remove
+  // Fade & remove the wisp
   const start = performance.now();
   (function fade() {
     const t = Math.min(1, (performance.now() - start) / 600);
@@ -790,19 +832,142 @@ function crystallizeWisp(wisp) {
     }
   })();
 
-  // Show the tiny quest line as a whisper
+  // Show the tiny quest line, then offer "done / not yet"
   const quest = TINY_QUESTS[Math.floor(Math.random()*TINY_QUESTS.length)];
-  setTimeout(() => whisper(quest, 6500), 700);
-
-  // Respawn a new wisp after a moment somewhere else in the room
   setTimeout(() => {
+    whisper(quest, 30000); // hold the line until the player chooses
+    showQuestActions(wisp.color.getHex());
+  }, 700);
+}
+
+// ===== Quest actions =====
+function showQuestActions(colorHex) {
+  const el = document.getElementById('quest-actions');
+  el.classList.add('show');
+}
+function hideQuestActions() {
+  document.getElementById('quest-actions').classList.remove('show');
+}
+
+document.getElementById('quest-done').addEventListener('click', (ev) => {
+  ev.stopPropagation();
+  hideQuestActions();
+  whisper('', 0);
+  roomResponds();
+  scheduleNextWisp();
+});
+document.getElementById('quest-skip').addEventListener('click', (ev) => {
+  ev.stopPropagation();
+  hideQuestActions();
+  whisper('still here when you want.', 3500);
+  scheduleNextWisp();
+});
+
+function scheduleNextWisp() {
+  setTimeout(() => {
+    if (wisps.length >= 3) return;
     const wx = -2 + Math.random()*4;
-    const wy = 1.4 + Math.random()*0.6;
-    const wz = -2.5 + Math.random()*2;
+    const wy = 1.6 + Math.random()*0.6;
+    const wz = -1.5 + Math.random()*2.5;
     const wc = WISP_COLORS[Math.floor(Math.random()*WISP_COLORS.length)];
     makeWisp(wx, wy, wz, wc);
-  }, 8000);
+  }, 4500);
 }
+
+// ===== Room responds to "done" =====
+// 1. Lamp pulses warmer for ~3s
+// 2. A small seed accumulates on the windowsill
+// 3. Companion whispers warmly
+// 4. Soft chime
+const seeds = [];
+function roomResponds() {
+  // 1. Lamp warm pulse
+  const startE = lampLight.intensity;
+  const pulseStart = performance.now();
+  const pulseDur = 2800;
+  (function lampPulse() {
+    const t = Math.min(1, (performance.now() - pulseStart) / pulseDur);
+    // up then down — ease in/out
+    const e = Math.sin(t * Math.PI);
+    lampLight.intensity = 1.6 + e * 1.2;
+    lampShade.material.emissiveIntensity = 0.55 + e * 0.6;
+    if (t < 1) requestAnimationFrame(lampPulse);
+    else {
+      lampLight.intensity = 1.6;
+      lampShade.material.emissiveIntensity = 0.55;
+    }
+  })();
+
+  // 2. Seed on windowsill — small persistent glow
+  spawnSeed();
+
+  // 3. Companion warm line
+  const lines = ['oh. nice one.', 'mm.', '...there.', 'good.', 'soft.'];
+  whisper(lines[Math.floor(Math.random()*lines.length)], 3000);
+
+  // 4. Chime — soft warm two-note
+  chimeDone();
+}
+
+function spawnSeed() {
+  // Seeds accumulate on the windowsill (left side of room, under window).
+  // Each seed is a small glowing icosahedron — warm amber.
+  const idx = seeds.length;
+  const cols = 6;
+  const row = Math.floor(idx / cols);
+  const col = idx % cols;
+  const sx = WIN_X - WIN_W/2 + 0.18 + col * 0.24;
+  const sy = WIN_Y - WIN_H/2 - 0.02 + row * 0.12;
+  const sz = BACK_Z + 0.22;
+
+  const c = new THREE.Color(0xf5d89a);
+  const seed = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(0.06, 0),
+    new THREE.MeshStandardMaterial({
+      color: c, emissive: c, emissiveIntensity: 2.2,
+      roughness: 0.4, flatShading: true,
+    })
+  );
+  const seedGlow = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(0.12, 0),
+    new THREE.MeshBasicMaterial({
+      color: c, transparent: true, opacity: 0.4,
+      blending: THREE.AdditiveBlending, depthWrite: false,
+    })
+  );
+  const group = new THREE.Group();
+  group.add(seed); group.add(seedGlow);
+  group.position.set(sx, sy, sz);
+  group.scale.setScalar(0);  // start tiny, grow in
+  scene.add(group);
+  seeds.push({ group, basePhase: Math.random()*Math.PI*2 });
+
+  // Grow-in animation
+  const start = performance.now();
+  (function grow() {
+    const t = Math.min(1, (performance.now() - start) / 800);
+    const e = 1 - Math.pow(1 - t, 3);
+    group.scale.setScalar(e);
+    if (t < 1) requestAnimationFrame(grow);
+  })();
+}
+
+function chimeDone() {
+  if (!actx) return;
+  // Warm two-note, never triumphant
+  [392.0, 523.25].forEach((f, i) => {
+    const t0 = actx.currentTime + i * 0.15;
+    const osc = actx.createOscillator();
+    const g = actx.createGain();
+    osc.type = 'sine'; osc.frequency.value = f;
+    g.gain.setValueAtTime(0, t0);
+    g.gain.linearRampToValueAtTime(0.07, t0 + 0.03);
+    g.gain.exponentialRampToValueAtTime(0.001, t0 + 1.2);
+    osc.connect(g).connect(actx.destination);
+    osc.start(t0); osc.stop(t0 + 1.3);
+  });
+}
+
 
 
 // ===== Animation loop =====
@@ -867,12 +1032,14 @@ function animate() {
     // Sync mesh to physics body
     w.group.position.set(w.body.position.x, w.body.position.y, w.body.position.z);
 
-    // Breathing glow
-    const breath = 0.85 + Math.sin(t * 1.2 + w.phase) * 0.15;
-    w.group.children[1].material.opacity = 0.35 * breath;
-    w.group.children[2].material.opacity = 0.12 * breath;
-    w.group.children[0].rotation.x += dt * 0.4;
-    w.group.children[0].rotation.y += dt * 0.3;
+    // Stronger breathing — wisps clearly say "tap me"
+    const breath = 0.75 + Math.sin(t * 2.2 + w.phase) * 0.35;
+    w.group.children[0].material.emissiveIntensity = 3.0 * breath;
+    w.group.children[1].material.opacity = 0.5 * breath;
+    w.group.children[2].material.opacity = 0.18 * breath;
+    w.group.scale.setScalar(0.95 + Math.sin(t * 1.5 + w.phase) * 0.1);
+    w.group.children[0].rotation.x += dt * 0.5;
+    w.group.children[0].rotation.y += dt * 0.4;
   });
   // Subtle breathing in the glow
   const breath = 0.85 + Math.sin(t * 0.8) * 0.15;
@@ -920,6 +1087,14 @@ function animate() {
   camera.position.y = 1.85 + Math.sin(t * 0.4) * 0.025;
   camera.position.x = Math.sin(t * 0.25) * 0.05;
   camera.lookAt(0, 1.4 + Math.sin(t * 0.3) * 0.04, -2);
+
+  // Animate seeds — gentle breathing glow
+  seeds.forEach((s, i) => {
+    const phase = s.basePhase + t * 0.7;
+    const breath = 0.85 + Math.sin(phase) * 0.15;
+    if (s.group.children[0].material) s.group.children[0].material.emissiveIntensity = 2.2 * breath;
+    if (s.group.children[1].material) s.group.children[1].material.opacity = 0.4 * breath;
+  });
 
   cinematicPass.uniforms.time.value = t;
   composer.render();
