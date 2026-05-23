@@ -11,6 +11,19 @@ MOMENTUM is an emotional regulation game disguised as a cozy world. Its target o
 
 The bar: would a child or adult ADHD clinician trust their patient to use this without it making them more anxious, more shame-driven, or more compulsive?
 
+## Evidence positioning
+
+MOMENTUM is **not** an EndeavorRx competitor and must never be framed like one.
+
+EndeavorRx is a prescription digital therapeutic with FDA authorization for improving attention function in pediatric ADHD, measured through computer-based attention testing. Its role is as part of a broader therapeutic program, not as a medication replacement. Traditional ADHD medication evidence has a much larger randomized-trial and meta-analysis base for reducing core ADHD symptoms. MOMENTUM should learn from digital-therapeutic ethics, dosing discipline, and safety language, but it should not borrow clinical authority.
+
+Practical implications:
+- Do not compare MOMENTUM's efficacy to medication.
+- Do not imply MOMENTUM treats ADHD, improves symptoms, or replaces medication, therapy, school support, parent training, or clinician care.
+- If EndeavorRx is referenced, use it only as a precedent for cautious digital-therapeutic evidence standards, not as a marketing analogy.
+- MOMENTUM's honest claim is narrower: a calming, toy-like room that may help users externalize scattered intentions and lower activation energy for tiny real-world actions.
+- Any future clinical language requires actual study data, IRB/ethics review where appropriate, and clinician review before publication.
+
 ## Trigger conditions
 
 Activate this skill when:
@@ -20,6 +33,7 @@ Activate this skill when:
 - Designing the "world sleeps while you act" loop
 - Considering streaks, points, levels, progress bars, or engagement metrics
 - Anyone calls MOMENTUM "brain training," "treatment," or claims clinical benefit
+- Anyone compares MOMENTUM to EndeavorRx, medication, therapy, or an FDA-authorized product
 - A feature pulls the user toward MORE app time rather than less
 
 ## Core principles (non-negotiable)
@@ -100,11 +114,12 @@ F. **Honest framing**
 16. Does any marketing / store copy / onboarding claim treatment or therapy?
 17. Is the user given clear language about what MOMENTUM is and isn't?
 18. Is the user's data theirs? Can they delete everything in one tap?
+19. Does any copy imply parity with EndeavorRx, medication, or clinician-directed care? (If yes — remove.)
 
 G. **Accessibility & cultural fit**
-19. Color contrast & dark mode legibility for ADHD-adjacent dyslexia?
-20. Sound design avoids harsh transients?
-21. Thai-version language is neurodiversity-affirming, not pathologizing?
+20. Color contrast & dark mode legibility for ADHD-adjacent dyslexia?
+21. Sound design avoids harsh transients?
+22. Thai-version language is neurodiversity-affirming, not pathologizing?
 
 Any ❌ = stop and redesign.
 
@@ -120,6 +135,8 @@ Any ❌ = stop and redesign.
 - Treatment, therapy, intervention, cure, fix
 - Symptom reduction without an RCT
 - Cognitive improvement
+- Medication alternative, substitute, or comparator
+- FDA-like, clinically proven, prescription-grade, or EndeavorRx-like
 - "Designed by clinicians" unless a clinician truly signed off on the build
 
 ## Hard refusals

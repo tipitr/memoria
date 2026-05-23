@@ -18,8 +18,12 @@ The reward is **state improvement**, not task completion. The room calms with yo
 - A task manager
 - A brain-training game
 - A therapy app
+- A medication alternative
+- An EndeavorRx competitor
 
 No streaks. No daily goals. No "you missed N quests." No XP. No leveling. No push notifications.
+
+MOMENTUM does not claim to treat ADHD, reduce symptoms, or improve attention. It is a non-clinical support experience: a calm room for externalizing scattered intentions and turning them into tiny optional first steps.
 
 ## Status
 
@@ -53,6 +57,7 @@ The final MEMORIA commit is tagged `memoria-final`. The runner build is preserve
 ## Design constraints (non-negotiable)
 
 - Reward = state improvement, not task completion
+- No treatment, symptom-reduction, medication-comparison, or FDA-like claims
 - No streaks, percentages, daily goals
 - No push notifications, ever
 - The room is always welcoming on return — no catch-up screens, no shame
