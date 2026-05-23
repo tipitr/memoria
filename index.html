@@ -77,6 +77,52 @@
   }
   #room-hint.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
+  #room-task {
+    position: fixed; left: 50%; top: 6vh; transform: translateX(-50%);
+    z-index: 6; pointer-events: none;
+    min-width: min(340px, 86vw);
+    padding: 12px 18px;
+    border-radius: 18px;
+    background: rgba(16, 11, 8, 0.48);
+    border: 1px solid rgba(230, 216, 192, 0.16);
+    box-shadow: 0 12px 34px rgba(0,0,0,0.22), 0 0 30px rgba(245,216,154,0.08);
+    opacity: 0; transition: opacity 900ms ease, transform 900ms ease;
+    text-align: center; backdrop-filter: blur(8px);
+  }
+  #room-task.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  #room-task .need {
+    display: block;
+    color: #f5d89a;
+    font-size: clamp(15px, 2.4vw, 18px);
+    font-style: italic; letter-spacing: 0.02em;
+    margin-bottom: 4px;
+  }
+  #room-task .how {
+    display: block;
+    color: rgba(230,216,192,0.68);
+    font-size: 12px;
+    letter-spacing: 0.08em;
+  }
+
+  .target-label {
+    position: fixed; z-index: 6; pointer-events: none;
+    transform: translate(-50%, -50%);
+    padding: 7px 11px;
+    border-radius: 999px;
+    background: rgba(10,7,5,0.52);
+    border: 1px solid rgba(230,216,192,0.15);
+    color: rgba(230,216,192,0.55);
+    font-size: 11px; font-style: italic; letter-spacing: 0.08em;
+    opacity: 0.45; transition: opacity 300ms ease, color 300ms ease, border-color 300ms ease, transform 300ms ease;
+  }
+  .target-label.active {
+    opacity: 1;
+    color: #f5d89a;
+    border-color: rgba(245,216,154,0.45);
+    transform: translate(-50%, -50%) scale(1.08);
+    box-shadow: 0 0 24px rgba(245,216,154,0.16);
+  }
+
   /* Title — three softly fading screens, then dissolves into the room */
   #onboard {
     position: fixed; inset: 0; z-index: 10;
@@ -122,6 +168,13 @@
 
 <div id="vignette"></div>
 <div id="room-hint">pull one drifting thing into the lamp, plant, or window.</div>
+<div id="room-task">
+  <span class="need" id="task-need">the lamp is dim.</span>
+  <span class="how" id="task-how">tap any wisp, or drag one to the lamp.</span>
+</div>
+<div class="target-label" id="label-lamp">lamp</div>
+<div class="target-label" id="label-plant">plant</div>
+<div class="target-label" id="label-window">window</div>
 <div id="whisper"></div>
 <div id="quest-actions">
   <button class="done" id="quest-done">tiny step</button>
@@ -509,6 +562,9 @@ function makeTargetHalo(colorHex, radius=0.42) {
 const targetZones = [
   {
     name: 'lamp',
+    label: 'lamp',
+    need: 'the lamp is dim.',
+    how: 'tap any wisp, or drag one to the lamp.',
     pos: new THREE.Vector3(1.7, 1.75, -2.7),
     radius: 0.95,
     color: 0xf5d89a,
@@ -516,6 +572,9 @@ const targetZones = [
   },
   {
     name: 'plant',
+    label: 'plant',
+    need: 'the plant wants a small bright thing.',
+    how: 'tap any wisp, or drag one to the plant.',
     pos: new THREE.Vector3(0.6, 1.38, -2.55),
     radius: 0.85,
     color: 0x8bc66d,
@@ -523,6 +582,9 @@ const targetZones = [
   },
   {
     name: 'window',
+    label: 'window',
+    need: 'the window is holding too much rain.',
+    how: 'tap any wisp, or drag one to the window.',
     pos: new THREE.Vector3(WIN_X, WIN_Y, BACK_Z + 0.12),
     radius: 1.05,
     color: 0x8aa0c0,
@@ -536,6 +598,7 @@ targetZones.forEach((target) => {
 });
 
 let activeTarget = null;
+let currentWish = null;
 let lampWarmth = 0;
 let plantGrowth = 0;
 let windowClarity = 0;
@@ -681,6 +744,7 @@ let pulledWisp = null;
 let pullStrength = 0;
 let draggedWisp = null;
 let dragPoint = null;
+let dragStart = null;
 const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1.72);
 
 function spawnTapRipple(x, y) {
@@ -754,9 +818,37 @@ function updateDragPoint(x, y) {
 function setActiveTarget(target) {
   activeTarget = target;
   targetZones.forEach((t) => {
-    const isActive = t === target;
+    const isActive = t === target || (!target && t === currentWish);
     t.halo.material.opacity = isActive ? t.halo.userData.activeOpacity : t.halo.userData.baseOpacity;
     t.halo.scale.setScalar(isActive ? 1.25 : 1);
+  });
+}
+
+function setCurrentWish(target) {
+  currentWish = target;
+  document.getElementById('task-need').textContent = target.need;
+  document.getElementById('task-how').textContent = target.how;
+  document.getElementById('room-task').classList.add('show');
+  setActiveTarget(null);
+  updateTargetLabels();
+}
+
+function nextWishAfter(target) {
+  const remaining = targetZones.filter(t => t !== target);
+  const next = remaining[Math.floor(Math.random() * remaining.length)];
+  setTimeout(() => setCurrentWish(next), 1700);
+}
+
+function updateTargetLabels() {
+  targetZones.forEach((target) => {
+    const el = document.getElementById('label-' + target.name);
+    if (!el) return;
+    const sp = projectToScreen(target.pos);
+    el.style.left = sp.x + 'px';
+    el.style.top = sp.y + 'px';
+    el.style.display = sp.z < 1 ? 'block' : 'none';
+    el.classList.toggle('active', target === activeTarget || target === currentWish);
+    el.textContent = target === currentWish ? target.label + ' wants this' : target.label;
   });
 }
 
@@ -778,9 +870,10 @@ window.addEventListener('pointerdown', (ev) => {
   if (chosen) {
     draggedWisp = chosen;
     pulledWisp = null;
+    dragStart = { x, y };
     chosen.body.velocity.set(0, 0, 0);
     updateDragPoint(x, y);
-    whisper('bring it somewhere warm.', 2600);
+    whisper(currentWish ? 'bring it to the ' + currentWish.label + '.' : 'bring it somewhere warm.', 2600);
     document.getElementById('room-hint').classList.remove('show');
   }
 });
@@ -798,6 +891,7 @@ window.addEventListener('pointerup', (ev) => {
   const x = ev.clientX ?? 0;
   const y = ev.clientY ?? 0;
   let target = activeTarget || targetAtScreen(x, y);
+  const moved = dragStart ? Math.hypot(x - dragStart.x, y - dragStart.y) : 999;
   if (!target) {
     for (const t of targetZones) {
       const dx = t.pos.x - draggedWisp.group.position.x;
@@ -809,12 +903,16 @@ window.addEventListener('pointerup', (ev) => {
       }
     }
   }
+  if (!target && moved < 18 && currentWish) {
+    target = currentWish;
+  }
   if (target) {
     placeWispInTarget(draggedWisp, target);
   } else {
-    whisper('lamp, plant, or window.', 3200);
+    whisper(currentWish ? 'try the ' + currentWish.label + '.' : 'lamp, plant, or window.', 3200);
   }
   draggedWisp = null;
+  dragStart = null;
   setActiveTarget(null);
 });
 
@@ -984,14 +1082,13 @@ function advanceOnboard() {
 let firstHintPending = null;
 function enterRoom() {
   inRoom = true;
-  const hint = document.getElementById('room-hint');
-  hint.classList.add('show');
+  setCurrentWish(targetZones[0]);
   // First whisper — companion notices you, then points at the toy.
   setTimeout(() => whisper('oh — hi.', 3200), 1200);
-  setTimeout(() => whisper('try the warm places.', 4500), 4300);
+  setTimeout(() => whisper('the lamp is asking first.', 4500), 4300);
   // Gentle affordance hint — only if the player hasn't touched a wisp by 7s
   firstHintPending = setTimeout(() => {
-    whisper('drag one into the lamp.', 6000);
+    whisper('tap any wisp. i can carry it.', 6000);
     firstHintPending = null;
   }, 7000);
 }
@@ -1043,6 +1140,7 @@ function placeWispInTarget(wisp, target) {
   if (target.name === 'lamp') warmLamp();
   if (target.name === 'plant') growPlant();
   if (target.name === 'window') clearWindow();
+  nextWishAfter(target);
   setTimeout(() => {
     whisper('want one tiny step?', 30000);
     showQuestActions(target.color);
@@ -1145,12 +1243,12 @@ document.getElementById('quest-skip').addEventListener('click', (ev) => {
 function scheduleNextWisp(delay=4500) {
   setTimeout(() => {
     if (wisps.length >= 3) return;
-    const wx = -2 + Math.random()*4;
+    const wx = -1.7 + Math.random()*3.4;
     const wy = 1.6 + Math.random()*0.6;
-    const wz = -1.5 + Math.random()*2.5;
+    const wz = -0.8 + Math.random()*1.8;
     const wc = WISP_COLORS[Math.floor(Math.random()*WISP_COLORS.length)];
     makeWisp(wx, wy, wz, wc);
-  }, 4500);
+  }, delay);
 }
 
 // ===== Room responds to "done" =====
@@ -1390,12 +1488,14 @@ function animate() {
 
   // Target halos breathe quietly; when dragging, the active target blooms.
   targetZones.forEach((target, i) => {
-    const base = target === activeTarget ? target.halo.userData.activeOpacity : target.halo.userData.baseOpacity;
+    const highlighted = target === activeTarget || target === currentWish;
+    const base = highlighted ? target.halo.userData.activeOpacity : target.halo.userData.baseOpacity;
     target.halo.material.opacity = base * (0.82 + Math.sin(t * 1.6 + i) * 0.18);
     if (target !== activeTarget) {
-      target.halo.scale.setScalar(1 + Math.sin(t * 1.1 + i) * 0.03);
+      target.halo.scale.setScalar((highlighted ? 1.22 : 1) + Math.sin(t * 1.1 + i) * 0.03);
     }
   });
+  updateTargetLabels();
 
   cinematicPass.uniforms.time.value = t;
   composer.render();

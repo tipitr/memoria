@@ -26,9 +26,11 @@ No streaks. No daily goals. No "you missed N quests." No XP. No leveling. No pus
 v0.4 — the room is now a toy first, tiny-step tool second.
 
 - Wisps drift through the room with real physics (cannon.js)
-- Drag a wisp into the lamp → the lamp warms
-- Drag a wisp into the plant → the plant stretches and a seed appears
-- Drag a wisp into the window → the rain softens and the room clears
+- The room now tells you what it wants first: lamp, plant, or window
+- Tap a wisp once and it will go to the current object automatically
+- Or drag a wisp into the lamp → the lamp warms
+- Or drag a wisp into the plant → the plant stretches and a seed appears
+- Or drag a wisp into the window → the rain softens and the room clears
 - After the room reacts, the companion may offer an optional *tiny step*
 
 Next: stronger object personalities, real LLM-driven tiny steps (Anthropic API instead of the hardcoded pool), state engine that actually moves with player action, persistent state across "world sleeps while you act" sessions.
