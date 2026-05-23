@@ -126,6 +126,21 @@
   }
   #toast.show { opacity: 1; transform: translate(-50%, -58%); }
 
+  .fly-icon {
+    position: fixed;
+    z-index: 8;
+    width: 48px; height: 48px;
+    border-radius: 14px;
+    display: grid; place-items: center;
+    font-size: 25px;
+    background: linear-gradient(160deg, rgba(255,238,190,0.98), rgba(226,166,101,0.94));
+    border: 2px solid rgba(88,43,42,0.28);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.28);
+    pointer-events: none;
+    transform: translate(-50%, -50%);
+    transition: left 520ms cubic-bezier(.2,.9,.2,1), top 520ms cubic-bezier(.2,.9,.2,1), transform 520ms ease, opacity 520ms ease;
+  }
+
   #hint {
     position: absolute; left: 50%; bottom: calc(max(16px, env(safe-area-inset-bottom)) + 72px);
     transform: translateX(-50%);
@@ -251,19 +266,19 @@ const ORDERS = [
 ];
 const ORDER_POOLS = {
   1: [
-    { customer: 'Momo, umbrella ghost', line: 'Momo wants one thing. Find moon tea.', items: ['moonTea'] },
-    { customer: 'Nim, tiny drummer', line: 'Nim wants one snack. Find blue bun.', items: ['blueBun'] },
-    { customer: 'Oru, sleepy moth', line: 'Oru wants one glow. Find mint lamp.', items: ['mintLantern'] },
+    { customer: 'Momo, umbrella ghost', line: 'Momo wants one thing. Find moon tea.', items: ['moonTea'], react: 'momo stops dripping for a second.' },
+    { customer: 'Nim, tiny drummer', line: 'Nim wants one snack. Find blue bun.', items: ['blueBun'], react: 'nim taps a tiny victory beat.' },
+    { customer: 'Oru, sleepy moth', line: 'Oru wants one glow. Find mint lamp.', items: ['mintLantern'], react: 'oru blinks awake. mostly.' },
   ],
   2: [
-    { customer: 'Pip, alley sprite', line: 'Pip wants two things. Star plum and cloud rice.', items: ['starPlum', 'cloudRice'] },
-    { customer: 'Momo, umbrella ghost', line: 'Tea and bun for the rain.', items: ['moonTea', 'blueBun'] },
-    { customer: 'Auntie Lantern', line: 'A bright pair: mint lamp and fox candy.', items: ['mintLantern', 'foxCandy'] },
+    { customer: 'Pip, alley sprite', line: 'Pip wants two things. Star plum and cloud rice.', items: ['starPlum', 'cloudRice'], react: 'pip hides a grin in their scarf.' },
+    { customer: 'Momo, umbrella ghost', line: 'Tea and bun for the rain.', items: ['moonTea', 'blueBun'], react: 'momo says the rain tastes nicer.' },
+    { customer: 'Auntie Lantern', line: 'A bright pair: mint lamp and fox candy.', items: ['mintLantern', 'foxCandy'], react: 'auntie lantern warms both hands.' },
   ],
   3: [
-    { customer: 'Auntie Lantern', line: 'Three bright snacks: mint lamp, fox candy, star plum.', items: ['mintLantern', 'foxCandy', 'starPlum'] },
-    { customer: 'The Cat With A Hat', line: 'Tea, bun, candy. Any order is fine.', items: ['moonTea', 'blueBun', 'foxCandy'] },
-    { customer: 'Sleepy Moon Clerk', line: 'Rice, lamp, and moon tea before sunrise.', items: ['cloudRice', 'mintLantern', 'moonTea'] },
+    { customer: 'Auntie Lantern', line: 'Three bright snacks: mint lamp, fox candy, star plum.', items: ['mintLantern', 'foxCandy', 'starPlum'], react: 'auntie names one lantern after you.' },
+    { customer: 'The Cat With A Hat', line: 'Tea, bun, candy. Any order is fine.', items: ['moonTea', 'blueBun', 'foxCandy'], react: 'the cat pretends this was its plan.' },
+    { customer: 'Sleepy Moon Clerk', line: 'Rice, lamp, and moon tea before sunrise.', items: ['cloudRice', 'mintLantern', 'moonTea'], react: 'the moon clerk stamps the air.' },
   ],
 };
 
@@ -279,6 +294,7 @@ let repeatsThisOrder = 0;
 let orderVisible = true;
 let orderHideTimer = null;
 let orderStartedAt = 0;
+let focusSpark = 0;
 let targetPoint = null;
 let keys = {};
 let lastToast = null;
@@ -726,6 +742,35 @@ function memoryBanner(text, dur=1600) {
   memoryBanner.timer = setTimeout(() => el.classList.remove('show'), dur);
 }
 
+const _screenVec = new THREE.Vector3();
+function worldToScreen(pos) {
+  _screenVec.copy(pos).project(camera);
+  return {
+    x: (_screenVec.x * 0.5 + 0.5) * window.innerWidth,
+    y: (-_screenVec.y * 0.5 + 0.5) * window.innerHeight,
+  };
+}
+
+function flyIconToBasket(itemId, fromWorld) {
+  const from = worldToScreen(new THREE.Vector3(fromWorld.x, fromWorld.y + 0.8, fromWorld.z));
+  const basketRect = document.getElementById('basket').getBoundingClientRect();
+  const toX = basketRect.left + basketRect.width / 2;
+  const toY = basketRect.top + basketRect.height / 2;
+  const el = document.createElement('div');
+  el.className = 'fly-icon';
+  el.textContent = ITEMS[itemId].icon;
+  el.style.left = from.x + 'px';
+  el.style.top = from.y + 'px';
+  document.body.appendChild(el);
+  requestAnimationFrame(() => {
+    el.style.left = toX + 'px';
+    el.style.top = toY + 'px';
+    el.style.transform = 'translate(-50%, -50%) scale(0.45) rotate(18deg)';
+    el.style.opacity = '0.25';
+  });
+  setTimeout(() => el.remove(), 560);
+}
+
 function toast(text, dur=1200) {
   const el = document.getElementById('toast');
   clearTimeout(lastToast);
@@ -767,6 +812,8 @@ function collectItem(itemObj) {
     basket.push(itemObj.id);
     itemObj.cooldown = 1.2;
     createPuff(itemObj.group.position, ITEMS[itemObj.id].color, 8);
+    flyIconToBasket(itemObj.id, itemObj.group.position);
+    focusSpark += 0.18;
     beep(520 + basket.length * 70, 'triangle', 0.055, 0.22);
     toast(ITEMS[itemObj.id].name);
     renderOrder();
@@ -781,8 +828,14 @@ function collectItem(itemObj) {
 function wrongPickup(itemObj) {
   createPuff(itemObj.group.position, 0xffffff, 12);
   itemObj.mesh.scale.setScalar(1.4);
-  setTimeout(() => itemObj.mesh.scale.setScalar(1), 120);
-  const lines = ['not that sparkle.', 'too shiny.', 'wrong stall. funny though.', 'the basket spits it out.'];
+  itemObj.group.userData.kick = {
+    until: performance.now() + 420,
+    x: (Math.random() - 0.5) * 0.35,
+    z: (Math.random() - 0.5) * 0.35,
+  };
+  focusSpark = Math.max(0, focusSpark - 0.12);
+  setTimeout(() => itemObj.mesh.scale.setScalar(1), 140);
+  const lines = ['not that sparkle.', 'too shiny.', 'wrong stall. funny though.', 'it hops away offended.'];
   toast(lines[Math.floor(Math.random() * lines.length)], 900);
   beep(180, 'square', 0.025, 0.18);
 }
@@ -820,10 +873,33 @@ function startOrder(order=null) {
   memoryBanner('look now. it fades soon.', 1300);
   orderHideTimer = setTimeout(() => {
     if (!started || currentOrderIndex >= ORDERS.length || basketMatchesOrder()) return;
+    releaseMemoryMoths();
     orderVisible = false;
     renderOrder();
     memoryBanner('now hold it in your head.', 1700);
   }, showMs);
+}
+
+function releaseMemoryMoths() {
+  currentOrder.items.forEach((id, i) => {
+    const start = customerGroup.position.clone();
+    start.y = 1.45 + i * 0.12;
+    const end = player.position.clone();
+    end.y = 1.1 + i * 0.08;
+    const color = ITEMS[id].color;
+    for (let n = 0; n < 5; n++) {
+      const p = new THREE.Mesh(
+        new THREE.IcosahedronGeometry(0.045 + Math.random() * 0.025, 0),
+        new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 })
+      );
+      p.position.copy(start).add(new THREE.Vector3((Math.random()-0.5)*0.35, Math.random()*0.3, (Math.random()-0.5)*0.35));
+      p.userData.memoryEnd = end.clone().add(new THREE.Vector3((Math.random()-0.5)*0.35, Math.random()*0.2, (Math.random()-0.5)*0.35));
+      p.userData.life = 1;
+      p.userData.kind = 'memoryMoth';
+      scene.add(p);
+      puffs.push(p);
+    }
+  });
 }
 
 function nextAdaptiveOrder() {
@@ -891,7 +967,8 @@ function completeOrder() {
   beep(660, 'triangle', 0.06, 0.18);
   setTimeout(() => beep(880, 'triangle', 0.05, 0.26), 120);
   const lines = ['served warm.', 'the stall smiles.', 'lantern awake.', 'market remembers.'];
-  toast(delivered >= 5 ? 'the lantern tree wakes.' : lines[(delivered - 1) % lines.length], 1500);
+  toast(delivered >= 5 ? 'the lantern tree wakes.' : (currentOrder.react || lines[(delivered - 1) % lines.length]), 1800);
+  focusSpark += 0.25;
   updateMission();
   basket = [];
   currentOrderIndex++;
@@ -1053,13 +1130,25 @@ function animate(now=performance.now()) {
     player.rotation.y = Math.atan2(look.x - player.position.x, look.z - player.position.z);
   }
   player.position.y = Math.sin(t * 10) * 0.025;
+  focusSpark = Math.max(0, focusSpark - dt * 0.08);
+  basketMesh.scale.setScalar(1 + Math.min(0.28, focusSpark * 0.18) + Math.sin(t * 12) * Math.min(0.05, focusSpark * 0.02));
 
   itemMeshes.forEach(obj => {
     obj.cooldown = Math.max(0, obj.cooldown - dt);
     obj.group.rotation.y += dt * 0.8;
     obj.group.position.y = Math.sin(t * 2 + obj.group.position.x) * 0.045;
+    if (obj.group.userData.kick) {
+      const k = obj.group.userData.kick;
+      if (performance.now() < k.until) {
+        obj.group.position.x += k.x * dt * 6;
+        obj.group.position.z += k.z * dt * 6;
+      } else {
+        obj.group.userData.kick = null;
+      }
+    }
     const needed = started && currentOrderIndex < ORDERS.length && orderVisible && isItemStillNeeded(obj.id);
     const readyToDeliver = started && currentOrderIndex < ORDERS.length && basketMatchesOrder();
+    const tempting = started && currentOrderIndex < ORDERS.length && !orderVisible && !basketMatchesOrder() && !isItemStillNeeded(obj.id);
     obj.group.children.forEach(child => {
       if (child.userData && child.userData.kind === 'needBeacon') child.visible = needed && !readyToDeliver;
     });
@@ -1069,6 +1158,8 @@ function animate(now=performance.now()) {
     obj.group.scale.z = obj.group.scale.x;
     obj.halo.material.opacity = needed && !readyToDeliver
       ? 0.45 + Math.sin(t * 6 + obj.group.position.z) * 0.18
+      : tempting
+        ? 0.28 + Math.sin(t * 7 + obj.group.position.z) * 0.14
       : 0.08 + Math.sin(t * 2 + obj.group.position.z) * 0.03;
     if (player.position.distanceTo(obj.group.position) < 0.5) collectItem(obj);
   });
@@ -1105,9 +1196,16 @@ function animate(now=performance.now()) {
 
   for (let i = puffs.length - 1; i >= 0; i--) {
     const p = puffs[i];
-    p.position.add(p.userData.vel);
-    p.userData.vel.y -= 0.0015;
-    p.userData.life -= dt * 1.8;
+    if (p.userData.kind === 'memoryMoth') {
+      const end = p.userData.memoryEnd || player.position;
+      p.position.lerp(end, 0.035 + dt * 2.0);
+      p.position.y += Math.sin(t * 8 + i) * 0.004;
+      p.userData.life -= dt * 1.05;
+    } else {
+      p.position.add(p.userData.vel);
+      p.userData.vel.y -= 0.0015;
+      p.userData.life -= dt * 1.8;
+    }
     p.material.opacity = Math.max(0, p.userData.life);
     p.scale.multiplyScalar(1.015);
     if (p.userData.life <= 0) {
