@@ -20,54 +20,60 @@
   }
 
   #topbar {
-    position: absolute; left: 14px; right: 14px; top: 12px;
-    display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: start;
+    position: absolute; left: 12px; top: 12px;
+    width: min(292px, calc(100vw - 92px));
+    display: flex; flex-direction: column; gap: 8px; align-items: stretch;
   }
 
   #order-card {
-    min-height: 112px;
-    padding: 13px 15px 14px;
-    border-radius: 18px 18px 22px 22px;
+    min-height: 0;
+    padding: 9px 10px 10px;
+    border-radius: 13px;
     background:
-      radial-gradient(circle at 14% 10%, rgba(255,255,255,0.42), transparent 18%),
-      linear-gradient(160deg, rgba(255,238,190,0.96), rgba(226,166,101,0.94));
-    border: 2px solid rgba(88, 43, 42, 0.38);
-    box-shadow: 0 16px 38px rgba(0,0,0,0.32), inset 0 -6px 0 rgba(110,61,42,0.12);
-    color: #382132;
+      linear-gradient(90deg, rgba(33, 20, 43, 0.9), rgba(33, 20, 43, 0.5)),
+      linear-gradient(160deg, rgba(255,238,190,0.18), rgba(226,166,101,0.08));
+    border: 1px solid rgba(248,197,109,0.25);
+    box-shadow: 0 12px 30px rgba(0,0,0,0.24);
+    color: #f4e8cb;
+    backdrop-filter: blur(7px);
+  }
+  #order-card.memory-mode {
+    opacity: 0.74;
   }
 
   #customer-name {
-    font-size: 12px; color: #7a3540; letter-spacing: 0.08em;
+    font-size: 10px; color: #f8c56d; letter-spacing: 0.08em;
     text-transform: uppercase; margin-bottom: 6px;
     font-weight: 900;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
 
   #customer-line {
-    font-size: clamp(15px, 2.7vw, 18px);
-    line-height: 1.2; color: #382132;
+    font-size: 13px;
+    line-height: 1.15; color: rgba(244,232,203,0.9);
     font-weight: 800;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
   }
 
-  .icons { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .icons { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
   .icon {
-    min-width: 72px; height: 58px;
-    border-radius: 14px;
-    display: grid; grid-template-columns: 26px 1fr; gap: 6px; align-items: center;
-    padding: 6px 8px;
-    font-size: 24px;
-    background: rgba(55,31,44,0.12);
-    border: 2px solid rgba(78,39,44,0.18);
-    box-shadow: inset 0 -5px 0 rgba(0,0,0,0.08), 0 4px 0 rgba(88,43,42,0.12);
-    color: #331c31;
+    min-width: 50px; height: 42px;
+    border-radius: 10px;
+    display: grid; grid-template-columns: 19px 1fr; gap: 4px; align-items: center;
+    padding: 5px 6px;
+    font-size: 20px;
+    background: rgba(255,238,190,0.12);
+    border: 1px solid rgba(248,197,109,0.2);
+    box-shadow: inset 0 -4px 0 rgba(0,0,0,0.08);
+    color: #f4e8cb;
   }
-  .icon .mark { text-align: center; font-size: 25px; line-height: 1; }
+  .icon .mark { text-align: center; font-size: 21px; line-height: 1; }
   .icon .name {
-    font-size: 11px;
+    font-size: 9px;
     font-weight: 1000;
     line-height: 1;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.03em;
   }
   .icon.done {
     background: rgba(122, 216, 151, 0.35);
@@ -76,12 +82,39 @@
   }
 
   #lanterns {
+    position: absolute; right: 14px; top: 14px;
     display: flex; flex-direction: column; gap: 8px;
     padding: 10px;
     border-radius: 14px;
     background: rgba(20, 15, 30, 0.64);
     border: 1px solid rgba(255,255,255,0.12);
     backdrop-filter: blur(8px);
+  }
+
+  #pressure {
+    padding: 8px 9px;
+    border-radius: 12px;
+    background: rgba(18, 13, 26, 0.64);
+    border: 1px solid rgba(255,255,255,0.1);
+    box-shadow: 0 10px 24px rgba(0,0,0,0.2);
+    backdrop-filter: blur(7px);
+  }
+  #pressure-row {
+    display: flex; justify-content: space-between; gap: 10px;
+    color: rgba(244,232,203,0.82);
+    font-size: 10px; font-weight: 900; letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+  #dawn-bar {
+    height: 6px; margin-top: 7px; overflow: hidden;
+    border-radius: 999px;
+    background: rgba(255,255,255,0.1);
+  }
+  #dawn-fill {
+    width: 100%; height: 100%;
+    background: linear-gradient(90deg, #f8c56d, #ff8e6b);
+    border-radius: inherit;
+    transition: width 180ms linear, background 300ms ease;
   }
   .lantern-dot {
     width: 14px; height: 14px;
@@ -167,7 +200,7 @@
   #mission strong { color: #f8c56d; }
 
   #memory-banner {
-    position: absolute; left: 50%; top: 142px; transform: translateX(-50%);
+    position: absolute; left: 50%; top: 16px; transform: translateX(-50%);
     padding: 9px 13px;
     border-radius: 999px;
     background: rgba(18, 13, 26, 0.72);
@@ -216,6 +249,25 @@
     text-transform: uppercase;
     box-shadow: 0 0 30px rgba(248,197,109,0.34);
   }
+
+  @media (max-width: 680px) {
+    #topbar {
+      width: min(246px, calc(100vw - 82px));
+    }
+    #customer-line {
+      display: none;
+    }
+    .icon {
+      min-width: 42px; height: 38px;
+      grid-template-columns: 1fr;
+    }
+    .icon .name {
+      display: none;
+    }
+    #mission {
+      display: none;
+    }
+  }
 </style>
 </head>
 <body>
@@ -232,8 +284,12 @@
       <div id="customer-line"></div>
       <div class="icons" id="order-icons"></div>
     </div>
-    <div id="lanterns"></div>
+    <div id="pressure">
+      <div id="pressure-row"><span id="challenge-label">heat 1</span><span id="combo-label">combo 0</span></div>
+      <div id="dawn-bar"><div id="dawn-fill"></div></div>
+    </div>
   </div>
+  <div id="lanterns"></div>
   <div id="toast"></div>
   <div id="memory-banner"></div>
   <div id="mission"><strong>Wake 5 lanterns.</strong> Each order brings one stall back before sunrise.</div>
@@ -280,13 +336,22 @@ const ORDER_POOLS = {
     { customer: 'The Cat With A Hat', line: 'Tea, bun, candy. Any order is fine.', items: ['moonTea', 'blueBun', 'foxCandy'], react: 'the cat pretends this was its plan.' },
     { customer: 'Sleepy Moon Clerk', line: 'Rice, lamp, and moon tea before sunrise.', items: ['cloudRice', 'mintLantern', 'moonTea'], react: 'the moon clerk stamps the air.' },
   ],
+  4: [
+    { customer: 'The Cat With A Hat', line: 'Four quick things: tea, bun, candy, plum.', items: ['moonTea', 'blueBun', 'foxCandy', 'starPlum'], react: 'the cat gives one very official nod.' },
+    { customer: 'Sleepy Moon Clerk', line: 'Rice, lamp, tea, plum. Sunrise is nosy.', items: ['cloudRice', 'mintLantern', 'moonTea', 'starPlum'], react: 'the moon clerk files you under fast.' },
+    { customer: 'Pip, alley sprite', line: 'Bun, rice, candy, lamp. No shiny detours.', items: ['blueBun', 'cloudRice', 'foxCandy', 'mintLantern'], react: 'pip almost says thank you.' },
+  ],
 };
+
+const DAWN_MAX = 64;
 
 let started = false;
 let currentOrderIndex = 0;
 let currentOrder = null;
 let basket = [];
 let delivered = 0;
+let dawnLeft = DAWN_MAX;
+let combo = 0;
 let skillLevel = 1;
 let successStreak = 0;
 let wrongThisOrder = 0;
@@ -295,6 +360,7 @@ let orderVisible = true;
 let orderHideTimer = null;
 let orderStartedAt = 0;
 let focusSpark = 0;
+let shiftOver = false;
 let targetPoint = null;
 let keys = {};
 let lastToast = null;
@@ -673,6 +739,7 @@ function iconEl(id, done=false) {
 
 function renderOrder() {
   currentOrder = currentOrder || ORDERS[currentOrderIndex];
+  document.getElementById('order-card').classList.toggle('memory-mode', !orderVisible);
   document.getElementById('customer-name').textContent = currentOrder.customer;
   document.getElementById('customer-line').textContent = orderVisible ? currentOrder.line : 'remember the order. need a repeat? return to the customer.';
   const icons = document.getElementById('order-icons');
@@ -687,6 +754,7 @@ function renderOrder() {
   });
   renderBasket();
   renderLanterns();
+  renderPressure();
   updateHint();
 }
 
@@ -709,13 +777,29 @@ function renderBasket() {
   const icons = document.getElementById('basket-icons');
   icons.innerHTML = '';
   basket.forEach(id => icons.appendChild(iconEl(id, true)));
+  renderPressure();
   updateHint();
+}
+
+function renderPressure() {
+  document.getElementById('challenge-label').textContent = 'heat ' + skillLevel;
+  document.getElementById('combo-label').textContent = 'combo ' + combo;
+  const pct = Math.max(0, Math.min(1, dawnLeft / DAWN_MAX));
+  const fill = document.getElementById('dawn-fill');
+  fill.style.width = (pct * 100).toFixed(1) + '%';
+  fill.style.background = pct < 0.24
+    ? 'linear-gradient(90deg, #ff5d73, #ffb15f)'
+    : 'linear-gradient(90deg, #f8c56d, #ff8e6b)';
 }
 
 function updateHint() {
   const hint = document.getElementById('hint');
   if (!started) {
     hint.textContent = 'tap to open the night market';
+    return;
+  }
+  if (shiftOver) {
+    hint.textContent = 'tap anywhere to reopen the shift';
     return;
   }
   if (currentOrderIndex >= ORDERS.length) {
@@ -806,6 +890,7 @@ function neededCounts() {
 }
 
 function collectItem(itemObj) {
+  if (shiftOver) return;
   if (itemObj.cooldown > 0) return;
   const counts = neededCounts();
   if ((counts[itemObj.id] || 0) > 0) {
@@ -834,6 +919,9 @@ function wrongPickup(itemObj) {
     z: (Math.random() - 0.5) * 0.35,
   };
   focusSpark = Math.max(0, focusSpark - 0.12);
+  combo = 0;
+  dawnLeft = Math.max(0, dawnLeft - 5);
+  renderPressure();
   setTimeout(() => itemObj.mesh.scale.setScalar(1), 140);
   const lines = ['not that sparkle.', 'too shiny.', 'wrong stall. funny though.', 'it hops away offended.'];
   toast(lines[Math.floor(Math.random() * lines.length)], 900);
@@ -861,6 +949,7 @@ function isItemStillNeeded(id) {
 }
 
 function startOrder(order=null) {
+  shiftOver = false;
   currentOrder = order || nextAdaptiveOrder();
   basket = [];
   wrongThisOrder = 0;
@@ -869,8 +958,8 @@ function startOrder(order=null) {
   orderStartedAt = performance.now();
   clearTimeout(orderHideTimer);
   renderOrder();
-  const showMs = currentOrder.items.length === 1 ? 3600 : currentOrder.items.length === 2 ? 4300 : 5200;
-  memoryBanner('look now. it fades soon.', 1300);
+  const showMs = orderPeekMs();
+  memoryBanner(currentOrder.items.length === 1 ? 'tutorial: watch the order.' : 'memorize fast. dawn is moving.', 1200);
   orderHideTimer = setTimeout(() => {
     if (!started || currentOrderIndex >= ORDERS.length || basketMatchesOrder()) return;
     releaseMemoryMoths();
@@ -878,6 +967,14 @@ function startOrder(order=null) {
     renderOrder();
     memoryBanner('now hold it in your head.', 1700);
   }, showMs);
+}
+
+function orderPeekMs() {
+  if (currentOrderIndex === 0) return 3200;
+  const base = 2500 + currentOrder.items.length * 470;
+  const heatCut = (skillLevel - 1) * 360;
+  const comboCut = Math.min(360, combo * 90);
+  return Math.max(1550, base - heatCut - comboCut);
 }
 
 function releaseMemoryMoths() {
@@ -903,41 +1000,53 @@ function releaseMemoryMoths() {
 }
 
 function nextAdaptiveOrder() {
-  const level = Math.max(1, Math.min(3, skillLevel));
+  const level = Math.max(1, Math.min(4, skillLevel));
   const pool = ORDER_POOLS[level];
   return {...pool[currentOrderIndex % pool.length]};
 }
 
 function revealOrderAgain() {
-  if (orderVisible || currentOrderIndex >= ORDERS.length || basketMatchesOrder()) return;
+  if (shiftOver || orderVisible || currentOrderIndex >= ORDERS.length || basketMatchesOrder()) return;
   repeatsThisOrder++;
+  combo = 0;
+  dawnLeft = Math.max(0, dawnLeft - 4.5);
   orderVisible = true;
   renderOrder();
-  memoryBanner('repeated. no problem.', 1400);
+  memoryBanner('repeat costs dawnlight.', 1300);
   clearTimeout(orderHideTimer);
   orderHideTimer = setTimeout(() => {
     if (!started || currentOrderIndex >= ORDERS.length || basketMatchesOrder()) return;
     orderVisible = false;
     renderOrder();
     memoryBanner('try from memory.', 1400);
-  }, 2800 + currentOrder.items.length * 600);
+  }, Math.max(1500, orderPeekMs() * 0.75));
 }
 
 function adjustDifficulty(success=true) {
   if (!success) {
     successStreak = 0;
+    combo = 0;
     skillLevel = Math.max(1, skillLevel - 1);
     return;
   }
-  if (wrongThisOrder === 0 && repeatsThisOrder === 0) successStreak++;
-  else successStreak = 0;
-  if (successStreak >= 2) {
-    skillLevel = Math.min(3, skillLevel + 1);
+  if (wrongThisOrder === 0 && repeatsThisOrder === 0) {
+    successStreak++;
+    combo++;
+    skillLevel = Math.min(4, skillLevel + 1);
+    dawnLeft = Math.min(DAWN_MAX, dawnLeft + 1.6 + combo * 0.25);
+  } else {
+    successStreak = 0;
+    combo = 0;
+  }
+  if (successStreak >= 3) {
+    skillLevel = Math.min(4, skillLevel + 1);
     successStreak = 0;
   }
+  renderPressure();
 }
 
 function tryDeliver() {
+  if (shiftOver) return;
   const dist = player.position.distanceTo(customerGroup.position);
   if (dist > 0.8) return;
   if (basketMatchesOrder()) {
@@ -1000,26 +1109,34 @@ function wakeMarketLights() {
 
 function updateMission() {
   const el = document.getElementById('mission');
-  if (currentOrderIndex >= ORDERS.length) {
+  if (shiftOver && delivered < 5) {
+    el.innerHTML = '<strong>Dawn caught the route.</strong> ' + delivered + '/5 awake · tap to try cleaner.';
+  } else if (currentOrderIndex >= ORDERS.length) {
     el.innerHTML = '<strong>Market awake.</strong> The lantern tree remembers tonight.';
   } else {
     el.innerHTML = '<strong>Wake 5 lanterns.</strong> ' + delivered + '/5 awake · finish orders to bring the market back.';
   }
 }
 
-function endShift() {
+function endShift(dawnCaught=false) {
   clearTimeout(orderHideTimer);
-  document.getElementById('customer-name').textContent = 'shift complete';
-  document.getElementById('customer-line').textContent = 'five lanterns awake. tap to run the market again.';
+  shiftOver = true;
+  document.getElementById('order-card').classList.remove('memory-mode');
+  document.getElementById('customer-name').textContent = dawnCaught ? 'dawn caught you' : 'shift complete';
+  document.getElementById('customer-line').textContent = dawnCaught
+    ? delivered + '/5 lanterns awake. tap to try a faster route.'
+    : 'five lanterns awake. tap to run the market again.';
   document.getElementById('order-icons').innerHTML = '';
-  toast('night market complete', 2400);
+  toast(dawnCaught ? 'dawn broke over the market' : 'night market complete', 2400);
   targetPoint = null;
+  updateMission();
   updateHint();
 }
 
 function restartShift() {
   clearTimeout(orderHideTimer);
   delivered = 0; currentOrderIndex = 0; basket = [];
+  dawnLeft = DAWN_MAX; combo = 0; shiftOver = false;
   skillLevel = 1; successStreak = 0; wrongThisOrder = 0; repeatsThisOrder = 0;
   currentOrder = null; orderVisible = true;
   branches.forEach(l => {
@@ -1091,7 +1208,7 @@ window.addEventListener('pointerdown', (ev) => {
     updateMission();
     return;
   }
-  if (currentOrderIndex >= ORDERS.length) {
+  if (shiftOver || currentOrderIndex >= ORDERS.length) {
     restartShift();
     return;
   }
@@ -1108,11 +1225,21 @@ function animate(now=performance.now()) {
   last = now;
   const t = now / 1000;
 
+  if (started && !shiftOver && currentOrderIndex < ORDERS.length) {
+    dawnLeft = Math.max(0, dawnLeft - dt);
+    renderPressure();
+    if (dawnLeft <= 0) endShift(true);
+  }
+
   let move = new THREE.Vector3();
-  if (keys.w || keys.arrowup) move.z -= 1;
-  if (keys.s || keys.arrowdown) move.z += 1;
-  if (keys.a || keys.arrowleft) move.x -= 1;
-  if (keys.d || keys.arrowright) move.x += 1;
+  if (!shiftOver) {
+    if (keys.w || keys.arrowup) move.z -= 1;
+    if (keys.s || keys.arrowdown) move.z += 1;
+    if (keys.a || keys.arrowleft) move.x -= 1;
+    if (keys.d || keys.arrowright) move.x += 1;
+  } else {
+    targetPoint = null;
+  }
   if (move.lengthSq() > 0) {
     move.normalize().multiplyScalar(3.2 * dt);
     player.position.add(move);
@@ -1146,9 +1273,10 @@ function animate(now=performance.now()) {
         obj.group.userData.kick = null;
       }
     }
-    const needed = started && currentOrderIndex < ORDERS.length && orderVisible && isItemStillNeeded(obj.id);
-    const readyToDeliver = started && currentOrderIndex < ORDERS.length && basketMatchesOrder();
-    const tempting = started && currentOrderIndex < ORDERS.length && !orderVisible && !basketMatchesOrder() && !isItemStillNeeded(obj.id);
+    const activeOrder = started && !shiftOver && currentOrderIndex < ORDERS.length;
+    const needed = activeOrder && orderVisible && isItemStillNeeded(obj.id);
+    const readyToDeliver = activeOrder && basketMatchesOrder();
+    const tempting = activeOrder && !orderVisible && !basketMatchesOrder() && !isItemStillNeeded(obj.id);
     obj.group.children.forEach(child => {
       if (child.userData && child.userData.kind === 'needBeacon') child.visible = needed && !readyToDeliver;
     });
@@ -1165,7 +1293,7 @@ function animate(now=performance.now()) {
   });
   tryDeliver();
 
-  const readyToDeliver = started && currentOrderIndex < ORDERS.length && basketMatchesOrder();
+  const readyToDeliver = started && !shiftOver && currentOrderIndex < ORDERS.length && basketMatchesOrder();
   customerGroup.children.forEach(child => {
     if (child.userData && child.userData.kind === 'customerBeacon') {
       child.visible = readyToDeliver;
