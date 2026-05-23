@@ -3,1504 +3,684 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<title>MOMENTUM</title>
+<title>Night Market Memory</title>
 <style>
-  * { margin: 0; padding: 0; box-sizing: border-box; }
-  html, body { width: 100%; height: 100%; overflow: hidden; background: #0d0a08; color: #e6d8c0; font-family: 'Iowan Old Style', Georgia, serif; -webkit-font-smoothing: antialiased; -webkit-tap-highlight-color: transparent; user-select: none; touch-action: none; }
-  canvas { display: block; position: fixed; inset: 0; }
-
-  /* Subtle vignette overlay (paired with shader vignette for depth) */
-  #vignette {
-    position: fixed; inset: 0;
-    background: radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,0.35) 100%);
-    pointer-events: none; z-index: 4;
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  html, body {
+    width: 100%; height: 100%; overflow: hidden;
+    background: #101018; color: #f4e8cb;
+    font-family: ui-rounded, "Avenir Next", "Trebuchet MS", system-ui, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    touch-action: none; user-select: none;
   }
+  canvas { position: fixed; inset: 0; display: block; }
 
-  /* Companion whisper line */
-  #whisper {
-    position: fixed; left: 50%; bottom: 18vh; transform: translateX(-50%);
-    font-size: clamp(14px, 2vw, 17px); letter-spacing: 0.04em;
-    color: #e6d8c0; opacity: 0; transition: opacity 1.6s ease;
-    font-style: italic; text-shadow: 0 0 18px rgba(230,184,111,0.25);
-    pointer-events: none; z-index: 5;
-    text-align: center; max-width: 80vw;
-  }
-  #whisper.show { opacity: 0.85; }
-
-  /* Tap ripple — visual confirmation that the tap registered */
-  .tap-ripple {
-    position: fixed; width: 80px; height: 80px;
-    border-radius: 50%; pointer-events: none; z-index: 7;
-    border: 1px solid rgba(245, 216, 154, 0.55);
-    transform: translate(-50%, -50%) scale(0.2);
-    animation: ripple 700ms ease-out forwards;
-  }
-  @keyframes ripple {
-    0%   { transform: translate(-50%, -50%) scale(0.2); opacity: 0.8; border-width: 2px; }
-    100% { transform: translate(-50%, -50%) scale(1.4); opacity: 0; border-width: 1px; }
+  #hud {
+    position: fixed; inset: 0; pointer-events: none; z-index: 5;
   }
 
-  /* Quest action pills — appear under whisper when tiny quest is delivered */
-  #quest-actions {
-    position: fixed; left: 50%; bottom: 9vh; transform: translateX(-50%);
-    display: flex; gap: 14px;
-    opacity: 0; pointer-events: none; z-index: 6;
-    transition: opacity 0.9s ease;
+  #topbar {
+    position: absolute; left: 14px; right: 14px; top: 12px;
+    display: grid; grid-template-columns: 1fr auto; gap: 10px; align-items: start;
   }
-  #quest-actions.show { opacity: 1; pointer-events: auto; }
-  #quest-actions button {
-    appearance: none; background: rgba(20, 14, 10, 0.55);
-    border: 1px solid rgba(230, 216, 192, 0.22);
-    color: #e6d8c0;
-    font-family: inherit; font-style: italic; font-size: 13px;
-    letter-spacing: 0.15em; padding: 10px 22px;
-    border-radius: 999px; cursor: pointer;
-    transition: background 0.4s ease, border-color 0.4s ease, color 0.4s ease;
-    -webkit-tap-highlight-color: transparent;
-  }
-  #quest-actions button.done {
-    color: #f5d89a; border-color: rgba(245, 216, 154, 0.45);
-  }
-  #quest-actions button.done:hover { background: rgba(245, 216, 154, 0.12); }
-  #quest-actions button.skip { color: #8a8378; }
-  #quest-actions button.skip:hover { background: rgba(255,255,255,0.04); }
 
-  #room-hint {
-    position: fixed; left: 50%; top: 7vh; transform: translateX(-50%);
-    z-index: 6; pointer-events: none;
-    color: rgba(230,216,192,0.72);
-    font-size: clamp(13px, 2vw, 16px);
-    font-style: italic; letter-spacing: 0.05em;
-    text-align: center; max-width: 84vw;
-    text-shadow: 0 0 18px rgba(245,216,154,0.28);
-    opacity: 0; transition: opacity 1.2s ease, transform 1.2s ease;
+  #order-card {
+    min-height: 96px;
+    padding: 12px 14px;
+    border-radius: 14px;
+    background: rgba(20, 15, 30, 0.76);
+    border: 1px solid rgba(255,255,255,0.14);
+    box-shadow: 0 14px 40px rgba(0,0,0,0.28), inset 0 0 20px rgba(255,255,255,0.03);
+    backdrop-filter: blur(8px);
   }
-  #room-hint.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
-  #room-task {
-    position: fixed; left: 50%; top: 6vh; transform: translateX(-50%);
-    z-index: 6; pointer-events: none;
-    min-width: min(340px, 86vw);
-    padding: 12px 18px;
+  #customer-name {
+    font-size: 13px; color: #f8c56d; letter-spacing: 0.08em;
+    text-transform: uppercase; margin-bottom: 7px;
+  }
+
+  #customer-line {
+    font-size: clamp(15px, 2.7vw, 18px);
+    line-height: 1.25; color: #f7ebd0;
+    margin-bottom: 10px;
+  }
+
+  .icons { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .icon {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    display: grid; place-items: center;
+    font-size: 21px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.12);
+    box-shadow: inset 0 0 18px rgba(255,255,255,0.04);
+  }
+  .icon.done {
+    background: rgba(122, 216, 151, 0.18);
+    border-color: rgba(122, 216, 151, 0.5);
+    transform: scale(0.96);
+  }
+
+  #lanterns {
+    display: flex; flex-direction: column; gap: 8px;
+    padding: 10px;
+    border-radius: 14px;
+    background: rgba(20, 15, 30, 0.64);
+    border: 1px solid rgba(255,255,255,0.12);
+    backdrop-filter: blur(8px);
+  }
+  .lantern-dot {
+    width: 14px; height: 14px;
+    transform: rotate(45deg);
+    border-radius: 4px;
+    background: rgba(255,255,255,0.08);
+    border: 1px solid rgba(255,255,255,0.16);
+    transition: background 450ms ease, box-shadow 450ms ease, transform 450ms ease;
+  }
+  .lantern-dot.lit {
+    background: #f8c56d;
+    box-shadow: 0 0 16px #f8c56d;
+    transform: rotate(45deg) scale(1.16);
+  }
+
+  #basket {
+    position: absolute; left: 50%; bottom: max(16px, env(safe-area-inset-bottom)); transform: translateX(-50%);
+    display: flex; gap: 8px; min-height: 52px; align-items: center; justify-content: center;
+    padding: 8px 12px;
     border-radius: 18px;
-    background: rgba(16, 11, 8, 0.48);
-    border: 1px solid rgba(230, 216, 192, 0.16);
-    box-shadow: 0 12px 34px rgba(0,0,0,0.22), 0 0 30px rgba(245,216,154,0.08);
-    opacity: 0; transition: opacity 900ms ease, transform 900ms ease;
-    text-align: center; backdrop-filter: blur(8px);
+    background: rgba(20, 15, 30, 0.68);
+    border: 1px solid rgba(255,255,255,0.12);
+    box-shadow: 0 14px 34px rgba(0,0,0,0.24);
+    backdrop-filter: blur(8px);
   }
-  #room-task.show { opacity: 1; transform: translateX(-50%) translateY(0); }
-  #room-task .need {
-    display: block;
-    color: #f5d89a;
-    font-size: clamp(15px, 2.4vw, 18px);
-    font-style: italic; letter-spacing: 0.02em;
-    margin-bottom: 4px;
-  }
-  #room-task .how {
-    display: block;
-    color: rgba(230,216,192,0.68);
-    font-size: 12px;
-    letter-spacing: 0.08em;
+  #basket-label {
+    font-size: 11px; color: rgba(244,232,203,0.58);
+    letter-spacing: 0.16em; text-transform: uppercase; margin-right: 3px;
   }
 
-  .target-label {
-    position: fixed; z-index: 6; pointer-events: none;
-    transform: translate(-50%, -50%);
-    padding: 7px 11px;
+  #toast {
+    position: absolute; left: 50%; top: 47%; transform: translate(-50%, -50%);
+    padding: 12px 18px;
     border-radius: 999px;
-    background: rgba(10,7,5,0.52);
-    border: 1px solid rgba(230,216,192,0.15);
-    color: rgba(230,216,192,0.55);
-    font-size: 11px; font-style: italic; letter-spacing: 0.08em;
-    opacity: 0.45; transition: opacity 300ms ease, color 300ms ease, border-color 300ms ease, transform 300ms ease;
+    background: rgba(16, 12, 22, 0.78);
+    border: 1px solid rgba(255,255,255,0.14);
+    color: #f7ebd0;
+    font-size: clamp(15px, 3vw, 20px);
+    opacity: 0; transition: opacity 220ms ease, transform 220ms ease;
+    white-space: nowrap;
+    box-shadow: 0 16px 44px rgba(0,0,0,0.28);
   }
-  .target-label.active {
-    opacity: 1;
-    color: #f5d89a;
-    border-color: rgba(245,216,154,0.45);
-    transform: translate(-50%, -50%) scale(1.08);
-    box-shadow: 0 0 24px rgba(245,216,154,0.16);
+  #toast.show { opacity: 1; transform: translate(-50%, -58%); }
+
+  #hint {
+    position: absolute; left: 50%; bottom: calc(max(16px, env(safe-area-inset-bottom)) + 72px);
+    transform: translateX(-50%);
+    color: rgba(244,232,203,0.66);
+    font-size: 13px;
+    text-align: center;
+    text-shadow: 0 2px 14px rgba(0,0,0,0.6);
   }
 
-  /* Title — three softly fading screens, then dissolves into the room */
-  #onboard {
+  #start {
     position: fixed; inset: 0; z-index: 10;
-    display: flex; flex-direction: column; align-items: center; justify-content: center;
-    background: #0d0a08;
-    padding: 0 8vw;
-    transition: opacity 1.8s ease;
+    display: flex; flex-direction: column; justify-content: center; align-items: center;
+    padding: 26px;
+    background: radial-gradient(circle at 50% 30%, rgba(70,45,110,0.5), #101018 64%);
+    transition: opacity 600ms ease;
+    text-align: center;
   }
-  #onboard.fade { opacity: 0; pointer-events: none; }
-  #onboard .lines { text-align: center; max-width: 540px; }
-  #onboard .line {
-    display: block;
-    font-size: clamp(16px, 2.4vw, 21px); line-height: 1.7;
-    color: #e6d8c0; opacity: 0; margin: 0.4em 0;
-    transition: opacity 1.4s ease, transform 1.4s ease;
-    transform: translateY(6px);
-    font-style: italic;
+  #start.fade { opacity: 0; pointer-events: none; }
+  #start h1 {
+    font-size: clamp(36px, 8vw, 74px);
+    line-height: 0.92;
+    letter-spacing: 0.02em;
+    color: #f8c56d;
+    text-shadow: 0 0 28px rgba(248,197,109,0.34);
+    margin-bottom: 16px;
   }
-  #onboard .line.in { opacity: 0.9; transform: translateY(0); }
-  #onboard .line.title {
-    font-style: normal;
-    font-size: clamp(28px, 5vw, 44px);
-    letter-spacing: 0.4em; color: #f5d89a;
-    margin-bottom: 2em;
-    text-shadow: 0 0 24px rgba(245,216,154,0.35);
+  #start p {
+    max-width: 540px;
+    font-size: clamp(15px, 2.5vw, 19px);
+    line-height: 1.45;
+    color: rgba(244,232,203,0.78);
+    margin-bottom: 28px;
   }
-  #onboard .cta {
-    margin-top: 3.5em;
-    font-size: 12px; letter-spacing: 0.35em; color: #8a7a64;
-    opacity: 0; transition: opacity 1.2s ease;
-    animation: breathe 2.2s ease-in-out infinite;
+  #start .play {
+    padding: 13px 24px;
+    border-radius: 999px;
+    background: #f8c56d;
+    color: #221520;
+    font-weight: 800;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    box-shadow: 0 0 30px rgba(248,197,109,0.34);
   }
-  #onboard .cta.in { opacity: 0.8; }
-  @keyframes breathe { 0%,100% { opacity: 0.45; } 50% { opacity: 0.95; } }
 </style>
 </head>
 <body>
-
-<div id="onboard">
-  <div class="lines" id="onboard-lines"></div>
-  <div class="cta" id="onboard-cta">— tap —</div>
+<div id="start">
+  <h1>Night Market<br/>Memory</h1>
+  <p>Run strange little orders before sunrise. Pick the right charms, ignore the shiny wrong ones, and wake the lantern tree.</p>
+  <div class="play">tap to open</div>
 </div>
 
-<div id="vignette"></div>
-<div id="room-hint">pull one drifting thing into the lamp, plant, or window.</div>
-<div id="room-task">
-  <span class="need" id="task-need">the lamp is dim.</span>
-  <span class="how" id="task-how">tap any wisp, or drag one to the lamp.</span>
-</div>
-<div class="target-label" id="label-lamp">lamp</div>
-<div class="target-label" id="label-plant">plant</div>
-<div class="target-label" id="label-window">window</div>
-<div id="whisper"></div>
-<div id="quest-actions">
-  <button class="done" id="quest-done">tiny step</button>
-  <button class="skip" id="quest-skip">not now</button>
+<div id="hud">
+  <div id="topbar">
+    <div id="order-card">
+      <div id="customer-name"></div>
+      <div id="customer-line"></div>
+      <div class="icons" id="order-icons"></div>
+    </div>
+    <div id="lanterns"></div>
+  </div>
+  <div id="toast"></div>
+  <div id="hint">tap anywhere to move · collect the order · return to the customer</div>
+  <div id="basket"><span id="basket-label">basket</span><div class="icons" id="basket-icons"></div></div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/ShaderPass.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/LuminosityHighPassShader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/shaders/CopyShader.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/cannon@0.6.2/build/cannon.min.js"></script>
 <script>
-/* ============================================================
-   MOMENTUM v0.1 — The Room
-   A cozy bedroom-studio. Warm lamp, rain on the window, a small
-   companion drifting near the desk. No interaction yet — just
-   be here for a minute and see if the room knows you.
-   ============================================================ */
+/* Night Market Memory
+   A real casual-game wrapper for ADHD-friendly cognitive practice.
+   No clinical language in-game. The player is running a magical market. */
 
-// ===== Onboarding (3 quiet screens, then we're in the room) =====
-const ONBOARD = [
-  [
-    { text: 'MOMENTUM', title: true },
-    { text: 'this is a room.' },
-    { text: "it's warm." },
-  ],
-  [
-    { text: 'when something is heavy,' },
-    { text: 'gather a wisp.' },
-    { text: 'a tiny first step will appear.' },
-  ],
-  [
-    { text: 'then leave.' },
-    { text: 'live a little.' },
-    { text: 'come back whenever.' },
-  ],
+const ITEMS = {
+  moonTea:   { name: 'moon tea',   icon: '☾', color: 0x86d7ff, shape: 'cup',   stall: 'tea' },
+  blueBun:   { name: 'blue bun',   icon: '●', color: 0x7aa6ff, shape: 'bun',   stall: 'bakery' },
+  starPlum:  { name: 'star plum',  icon: '✦', color: 0xe7c86a, shape: 'fruit', stall: 'fruit' },
+  cloudRice: { name: 'cloud rice', icon: '◇', color: 0xf3f1dc, shape: 'bowl',  stall: 'tea' },
+  foxCandy:  { name: 'fox candy',  icon: '◆', color: 0xff8e6b, shape: 'gem',   stall: 'bakery' },
+  mintLantern:{name: 'mint lamp',  icon: '✺', color: 0x7edb9a, shape: 'lamp',  stall: 'fruit' },
+};
+const ITEM_IDS = Object.keys(ITEMS);
+
+const ORDERS = [
+  { customer: 'Momo, umbrella ghost', line: 'two warm things for a rainy sleeve.', items: ['moonTea', 'blueBun'] },
+  { customer: 'Pip, alley sprite', line: 'something starry, something soft.', items: ['starPlum', 'cloudRice'] },
+  { customer: 'Auntie Lantern', line: 'bright, chewy, then bright again.', items: ['mintLantern', 'foxCandy', 'starPlum'] },
+  { customer: 'The Cat With A Hat', line: 'tea first. bun second. no biting.', items: ['moonTea', 'blueBun', 'foxCandy'] },
+  { customer: 'Sleepy Moon Clerk', line: 'last order before the stalls fold up.', items: ['cloudRice', 'mintLantern', 'moonTea', 'starPlum'] },
 ];
 
-let onboardScreen = 0;
-function showOnboardScreen(i) {
-  const lines = document.getElementById('onboard-lines');
-  const cta = document.getElementById('onboard-cta');
-  lines.innerHTML = '';
-  cta.classList.remove('in');
-  ONBOARD[i].forEach((entry) => {
-    const div = document.createElement('div');
-    div.className = 'line';
-    if (entry.title) div.classList.add('title');
-    div.textContent = entry.text;
-    lines.appendChild(div);
-  });
-  const lineEls = lines.querySelectorAll('.line');
-  lineEls.forEach((el, n) => setTimeout(() => el.classList.add('in'), 500 + n * 800));
-  setTimeout(() => cta.classList.add('in'), 500 + lineEls.length * 800 + 600);
-}
-// v0.4: no pre-game reading. The room is the first screen.
-document.getElementById('onboard').classList.add('fade');
-setTimeout(enterRoom, 350);
+let started = false;
+let currentOrderIndex = 0;
+let currentOrder = ORDERS[0];
+let basket = [];
+let delivered = 0;
+let targetPoint = null;
+let keys = {};
+let lastToast = null;
+let audioCtx = null;
 
-// ===== Three.js — the room =====
+// ---------- Scene ----------
 const scene = new THREE.Scene();
-scene.fog = new THREE.FogExp2(0x0e0a08, 0.075);
-scene.background = new THREE.Color(0x0e0a08);
+scene.background = new THREE.Color(0x151226);
+scene.fog = new THREE.FogExp2(0x151226, 0.045);
 
-const camera = new THREE.PerspectiveCamera(58, window.innerWidth/window.innerHeight, 0.1, 60);
-// Camera looks INTO the room from a slightly-elevated south position
-camera.position.set(0, 1.85, 5.5);
-camera.lookAt(0, 1.4, -2);
+const aspect = window.innerWidth / window.innerHeight;
+const frustum = window.innerWidth < 700 ? 9.2 : 11.5;
+const camera = new THREE.OrthographicCamera(
+  -frustum * aspect / 2, frustum * aspect / 2,
+  frustum / 2, -frustum / 2,
+  0.1, 100
+);
+camera.position.set(0, 10.5, 8.5);
+camera.lookAt(0, 0, 0);
 
 const renderer = new THREE.WebGLRenderer({ antialias: true });
-renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 0.85;
+renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 document.body.appendChild(renderer.domElement);
 
-// ===== Lighting =====
-// Very low ambient — almost everything comes from the lamp + window
-scene.add(new THREE.AmbientLight(0x3a2a1a, 0.35));
+scene.add(new THREE.HemisphereLight(0xa4bbff, 0x291720, 1.8));
+const moon = new THREE.DirectionalLight(0xd9e7ff, 1.1);
+moon.position.set(-3, 8, 4);
+moon.castShadow = true;
+moon.shadow.mapSize.set(1024, 1024);
+scene.add(moon);
 
-// Warm lamp — main light source, on the desk
-const lampLight = new THREE.PointLight(0xffb066, 1.6, 10, 1.9);
-lampLight.position.set(1.3, 1.75, -2.2);
-lampLight.castShadow = true;
-lampLight.shadow.mapSize.set(512, 512);
-lampLight.shadow.bias = -0.001;
-scene.add(lampLight);
-
-// Cool moonlight through the window — wide soft fill
-const moonLight = new THREE.DirectionalLight(0x6d8db0, 0.5);
-moonLight.position.set(-3, 4, -4);
-scene.add(moonLight);
-
-// Subtle warm hemisphere for floor bounce
-const hemi = new THREE.HemisphereLight(0xffaa66, 0x1a0e08, 0.25);
-scene.add(hemi);
-
-// ===== Room geometry =====
-const ROOM = new THREE.Group();
-scene.add(ROOM);
-
-// Materials — all flat-shaded for low-poly look
-const woodMat = new THREE.MeshStandardMaterial({
-  color: 0x4a2c1a, roughness: 0.85, metalness: 0.0, flatShading: true,
-});
-const wallMat = new THREE.MeshStandardMaterial({
-  color: 0x3a2e22, roughness: 0.95, metalness: 0.0, flatShading: true,
-});
-const ceilMat = new THREE.MeshStandardMaterial({
-  color: 0x1f1812, roughness: 1.0, metalness: 0.0, flatShading: true,
-});
-const fabricMat = new THREE.MeshStandardMaterial({
-  color: 0x6a4a32, roughness: 0.9, metalness: 0.0, flatShading: true,
-});
-const metalMat = new THREE.MeshStandardMaterial({
-  color: 0x1a1a1a, roughness: 0.4, metalness: 0.7, flatShading: true,
-});
-const lampShadeMat = new THREE.MeshStandardMaterial({
-  color: 0xd89a60, roughness: 0.65, metalness: 0.0,
-  emissive: 0xffaa66, emissiveIntensity: 0.55,
-  transparent: true, opacity: 0.95, flatShading: true,
-});
-const plantPotMat = new THREE.MeshStandardMaterial({
-  color: 0x5a3826, roughness: 0.9, metalness: 0.0, flatShading: true,
-});
-const leafMat = new THREE.MeshStandardMaterial({
-  color: 0x3a5230, roughness: 0.8, metalness: 0.0, flatShading: true,
-});
-const leafLightMat = new THREE.MeshStandardMaterial({
-  color: 0x4a6238, roughness: 0.8, metalness: 0.0, flatShading: true,
-});
-const glassMat = new THREE.MeshStandardMaterial({
-  color: 0x1a2230, roughness: 0.1, metalness: 0.0,
-  transparent: true, opacity: 0.55, flatShading: true,
-});
-
-// Floor
-const floor = new THREE.Mesh(
-  new THREE.PlaneGeometry(10, 10),
-  woodMat
+const ground = new THREE.Mesh(
+  new THREE.CircleGeometry(7.6, 8),
+  new THREE.MeshStandardMaterial({ color: 0x29203a, roughness: 0.9, flatShading: true })
 );
-floor.rotation.x = -Math.PI/2;
-floor.position.y = 0;
-floor.receiveShadow = true;
-ROOM.add(floor);
+ground.rotation.x = -Math.PI / 2;
+ground.receiveShadow = true;
+scene.add(ground);
 
-// Subtle floor planks — emissive lines for plank seams
-for (let i = -2; i <= 2; i++) {
-  const seam = new THREE.Mesh(
-    new THREE.BoxGeometry(10, 0.02, 0.02),
-    new THREE.MeshBasicMaterial({ color: 0x1a0e08, transparent: true, opacity: 0.6 })
-  );
-  seam.position.set(0, 0.011, i * 0.9);
-  ROOM.add(seam);
-}
-
-// Back wall (with window cutout — we'll build it as 4 pieces around the window)
-function makeWall(width, height, depth, x, y, z, mat, rotY = 0) {
-  const w = new THREE.Mesh(new THREE.BoxGeometry(width, height, depth), mat);
-  w.position.set(x, y, z);
-  w.rotation.y = rotY;
-  w.receiveShadow = true;
-  ROOM.add(w);
-  return w;
-}
-
-// Back wall pieces (window is 1.8w × 1.6h, centered at x=-1.4, y=1.8)
-const BACK_Z = -3.5;
-// Window position
-const WIN_X = -1.4, WIN_Y = 1.8, WIN_W = 1.8, WIN_H = 1.6;
-
-// Left of window
-makeWall(10/2 - 0.9, 3.6, 0.1, -3.6, 1.8, BACK_Z, wallMat);
-// Right of window (extends far right of room)
-makeWall(10/2 + 0.9, 3.6, 0.1,  1.5, 1.8, BACK_Z, wallMat);
-// Above window
-makeWall(WIN_W, 3.6 - WIN_H - 0.4, 0.1, WIN_X, 1.8 + WIN_H/2 + (3.6 - WIN_H - 0.4)/2 - 0.2, BACK_Z, wallMat);
-// Below window (sill area)
-makeWall(WIN_W, 1.8 - WIN_H/2 - 0.5, 0.1, WIN_X, (1.8 - WIN_H/2 - 0.5)/2, BACK_Z, wallMat);
-
-// Window glass
-const glass = new THREE.Mesh(new THREE.PlaneGeometry(WIN_W, WIN_H), glassMat);
-glass.position.set(WIN_X, WIN_Y, BACK_Z + 0.01);
-ROOM.add(glass);
-
-// Window frame
-const frameMat = new THREE.MeshStandardMaterial({ color: 0x281b10, roughness: 0.9 });
-for (const part of [
-  [WIN_W + 0.1, 0.08, 0.06, WIN_X, WIN_Y + WIN_H/2, BACK_Z + 0.05], // top
-  [WIN_W + 0.1, 0.08, 0.06, WIN_X, WIN_Y - WIN_H/2, BACK_Z + 0.05], // bottom
-  [0.08, WIN_H, 0.06, WIN_X - WIN_W/2, WIN_Y, BACK_Z + 0.05],       // left
-  [0.08, WIN_H, 0.06, WIN_X + WIN_W/2, WIN_Y, BACK_Z + 0.05],       // right
-  [WIN_W, 0.05, 0.06, WIN_X, WIN_Y, BACK_Z + 0.05],                 // horizontal mullion
-  [0.05, WIN_H, 0.06, WIN_X, WIN_Y, BACK_Z + 0.05],                 // vertical mullion
-]) {
-  const [w, h, d, x, y, z] = part;
-  const m = new THREE.Mesh(new THREE.BoxGeometry(w, h, d), frameMat);
-  m.position.set(x, y, z);
-  ROOM.add(m);
-}
-
-// Window sill (small shelf below window)
-const sill = new THREE.Mesh(
-  new THREE.BoxGeometry(WIN_W + 0.3, 0.06, 0.25),
-  frameMat
+const path = new THREE.Mesh(
+  new THREE.RingGeometry(1.6, 6.2, 8, 1),
+  new THREE.MeshStandardMaterial({ color: 0x38294e, roughness: 0.95, flatShading: true })
 );
-sill.position.set(WIN_X, WIN_Y - WIN_H/2 - 0.05, BACK_Z + 0.18);
-ROOM.add(sill);
+path.rotation.x = -Math.PI / 2;
+path.position.y = 0.012;
+scene.add(path);
 
-// Left wall
-makeWall(0.1, 3.6, 8, -5, 1.8, 0, wallMat);
-// Right wall
-makeWall(0.1, 3.6, 8,  5, 1.8, 0, wallMat);
+const stalls = {
+  tea:    { pos: new THREE.Vector3(-4.2, 0, -2.2), color: 0x62c4d8, label: 'tea' },
+  bakery: { pos: new THREE.Vector3(4.1, 0, -2.0), color: 0xeb8f73, label: 'buns' },
+  fruit:  { pos: new THREE.Vector3(0, 0, 3.8), color: 0x95d46d, label: 'charms' },
+};
+const itemMeshes = [];
+const customerGroup = new THREE.Group();
+const lanternTree = new THREE.Group();
+const puffs = [];
 
-// Ceiling
-const ceiling = new THREE.Mesh(new THREE.PlaneGeometry(10, 10), ceilMat);
-ceiling.rotation.x = Math.PI/2;
-ceiling.position.y = 3.6;
-ROOM.add(ceiling);
-
-// ===== Desk =====
-const desk = new THREE.Group();
-desk.position.set(1.3, 0, -2.6);
-ROOM.add(desk);
-
-// Desk top
-const deskTop = new THREE.Mesh(new THREE.BoxGeometry(2.0, 0.08, 1.0), woodMat);
-deskTop.position.y = 1.05;
-deskTop.castShadow = true;
-deskTop.receiveShadow = true;
-desk.add(deskTop);
-// Desk legs (4)
-for (const [lx, lz] of [[-0.9, -0.45], [0.9, -0.45], [-0.9, 0.45], [0.9, 0.45]]) {
-  const leg = new THREE.Mesh(new THREE.BoxGeometry(0.08, 1.05, 0.08), woodMat);
-  leg.position.set(lx, 0.525, lz);
-  desk.add(leg);
-}
-
-// ===== Lamp on desk =====
-const lamp = new THREE.Group();
-lamp.position.set(0.4, 1.09, -0.1);
-desk.add(lamp);
-// Base — chunky low-poly hexagon
-const lampBase = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 0.06, 6), metalMat);
-lampBase.position.y = 0.03;
-lamp.add(lampBase);
-// Stem — 4-sided so it reads as low-poly even thin
-const lampStem = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 0.55, 4), metalMat);
-lampStem.position.y = 0.33;
-lamp.add(lampStem);
-// Shade — 6-sided cone, very low poly
-const lampShade = new THREE.Mesh(new THREE.ConeGeometry(0.22, 0.32, 6, 1, true), lampShadeMat);
-lampShade.position.y = 0.66;
-lampShade.material.side = THREE.DoubleSide;
-lamp.add(lampShade);
-
-// ===== Plant on desk =====
-const plant = new THREE.Group();
-plant.position.set(-0.7, 1.09, 0.05);
-desk.add(plant);
-// Pot — hexagonal, low-poly
-const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.10, 0.18, 6), plantPotMat);
-pot.position.y = 0.09;
-plant.add(pot);
-// Leaves — angular tetrahedron-style chunks for true low-poly look
-const plantLeaves = [];
-for (let i = 0; i < 7; i++) {
-  const angle = (i/7) * Math.PI*2;
-  const r = 0.06 + Math.random()*0.08;
-  // Use a low-poly stretched icosahedron for leaf
-  const leafGeo = new THREE.IcosahedronGeometry(0.12, 0);
-  leafGeo.scale(0.4, 1.5, 0.35);
-  const leaf = new THREE.Mesh(leafGeo, i % 2 ? leafMat : leafLightMat);
-  leaf.position.set(Math.cos(angle)*r, 0.28 + Math.random()*0.12, Math.sin(angle)*r);
-  leaf.rotation.set(
-    (Math.random()-0.5)*0.5,
-    angle + Math.random()*0.3,
-    (Math.random()-0.3)*0.6
-  );
-  plant.add(leaf);
-  plantLeaves.push(leaf);
-}
-
-// ===== Bed/couch on the left =====
-const bed = new THREE.Group();
-bed.position.set(-3, 0, -1.8);
-ROOM.add(bed);
-// Base
-const bedBase = new THREE.Mesh(new THREE.BoxGeometry(1.6, 0.4, 2.6), woodMat);
-bedBase.position.y = 0.2;
-bedBase.castShadow = true;
-bedBase.receiveShadow = true;
-bed.add(bedBase);
-// Mattress / blankets
-const mattress = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.22, 2.55), fabricMat);
-mattress.position.y = 0.51;
-mattress.castShadow = true;
-bed.add(mattress);
-// Pillow
-const pillow = new THREE.Mesh(new THREE.BoxGeometry(1.3, 0.15, 0.55), new THREE.MeshStandardMaterial({ color: 0xc8a880, roughness: 0.9 }));
-pillow.position.set(0, 0.7, -0.85);
-bed.add(pillow);
-// Folded blanket at foot
-const blanket = new THREE.Mesh(new THREE.BoxGeometry(1.55, 0.12, 0.7), new THREE.MeshStandardMaterial({ color: 0x8a4a32, roughness: 0.9 }));
-blanket.position.set(0, 0.66, 0.85);
-bed.add(blanket);
-
-// Small rug between bed and desk
-const rugGeo = new THREE.PlaneGeometry(2.2, 1.3);
-const rugMat = new THREE.MeshStandardMaterial({
-  color: 0x7a4a30, roughness: 1.0, metalness: 0.0
-});
-const rug = new THREE.Mesh(rugGeo, rugMat);
-rug.rotation.x = -Math.PI/2;
-rug.position.set(-0.5, 0.005, -0.6);
-rug.receiveShadow = true;
-ROOM.add(rug);
-
-// ===== Companion — small floating spirit =====
-const companion = new THREE.Group();
-// Core
-const compColor = new THREE.Color(0xf5d89a);
-const compCore = new THREE.Mesh(
-  new THREE.IcosahedronGeometry(0.12, 1),
-  new THREE.MeshStandardMaterial({
-    color: compColor, emissive: compColor, emissiveIntensity: 2.0, roughness: 0.4
-  })
-);
-companion.add(compCore);
-// Inner glow shell
-const compInner = new THREE.Mesh(
-  new THREE.IcosahedronGeometry(0.22, 1),
-  new THREE.MeshBasicMaterial({ color: compColor, transparent: true, opacity: 0.35, blending: THREE.AdditiveBlending, depthWrite: false })
-);
-companion.add(compInner);
-// Outer glow
-const compOuter = new THREE.Mesh(
-  new THREE.IcosahedronGeometry(0.4, 1),
-  new THREE.MeshBasicMaterial({ color: compColor, transparent: true, opacity: 0.12, blending: THREE.AdditiveBlending, depthWrite: false })
-);
-companion.add(compOuter);
-// Sprite halo
-const cnv = document.createElement('canvas');
-cnv.width = cnv.height = 128;
-const ctx = cnv.getContext('2d');
-const grad = ctx.createRadialGradient(64,64,4,64,64,64);
-grad.addColorStop(0, 'rgba(245,216,154,0.95)');
-grad.addColorStop(0.4, 'rgba(245,216,154,0.25)');
-grad.addColorStop(1, 'rgba(0,0,0,0)');
-ctx.fillStyle = grad; ctx.fillRect(0,0,128,128);
-const compHalo = new THREE.Sprite(new THREE.SpriteMaterial({
-  map: new THREE.CanvasTexture(cnv), transparent: true, opacity: 0.6,
-  blending: THREE.AdditiveBlending, depthWrite: false
-}));
-compHalo.scale.set(1.2, 1.2, 1);
-companion.add(compHalo);
-// Tiny point light from companion
-const compLight = new THREE.PointLight(0xf5d89a, 0.5, 4, 2);
-companion.add(compLight);
-
-companion.position.set(0.4, 1.5, -1.5);
-ROOM.add(companion);
-
-// ===== Room targets — the room toy =====
-// Wisps can be placed into these. Each target reacts immediately.
-function makeTargetHalo(colorHex, radius=0.42) {
-  const c = new THREE.Color(colorHex);
-  const halo = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(radius, 0),
-    new THREE.MeshBasicMaterial({
-      color: c, transparent: true, opacity: 0.08,
-      blending: THREE.AdditiveBlending, depthWrite: false,
-    })
-  );
-  halo.userData.baseOpacity = 0.08;
-  halo.userData.activeOpacity = 0.5;
-  return halo;
-}
-
-const targetZones = [
-  {
-    name: 'lamp',
-    label: 'lamp',
-    need: 'the lamp is dim.',
-    how: 'tap any wisp, or drag one to the lamp.',
-    pos: new THREE.Vector3(1.7, 1.75, -2.7),
-    radius: 0.95,
-    color: 0xf5d89a,
-    halo: makeTargetHalo(0xf5d89a, 0.48),
-  },
-  {
-    name: 'plant',
-    label: 'plant',
-    need: 'the plant wants a small bright thing.',
-    how: 'tap any wisp, or drag one to the plant.',
-    pos: new THREE.Vector3(0.6, 1.38, -2.55),
-    radius: 0.85,
-    color: 0x8bc66d,
-    halo: makeTargetHalo(0x8bc66d, 0.42),
-  },
-  {
-    name: 'window',
-    label: 'window',
-    need: 'the window is holding too much rain.',
-    how: 'tap any wisp, or drag one to the window.',
-    pos: new THREE.Vector3(WIN_X, WIN_Y, BACK_Z + 0.12),
-    radius: 1.05,
-    color: 0x8aa0c0,
-    halo: makeTargetHalo(0x8aa0c0, 0.65),
-  },
-];
-targetZones.forEach((target) => {
-  target.halo.position.copy(target.pos);
-  target.halo.scale.setScalar(1);
-  scene.add(target.halo);
-});
-
-let activeTarget = null;
-let currentWish = null;
-let lampWarmth = 0;
-let plantGrowth = 0;
-let windowClarity = 0;
-
-// ===== Physics world (cannon.js) =====
-// Very gentle gravity — wisps drift slowly downward, never crash.
-const world = new CANNON.World();
-world.gravity.set(0, -0.35, 0);
-world.broadphase = new CANNON.NaiveBroadphase();
-world.allowSleep = true;
-
-// Soft default contact — nothing in this room is hard
-const wispMat = new CANNON.Material('wisp');
-const staticMat = new CANNON.Material('static');
-world.addContactMaterial(new CANNON.ContactMaterial(wispMat, staticMat, {
-  friction: 0.05,
-  restitution: 0.4,
-}));
-world.addContactMaterial(new CANNON.ContactMaterial(wispMat, wispMat, {
-  friction: 0.02,
-  restitution: 0.6,
-}));
-
-// Static colliders so wisps don't fall through floor or pass through walls
-function addStaticBox(width, height, depth, x, y, z) {
-  const body = new CANNON.Body({
-    mass: 0,
-    material: staticMat,
-    shape: new CANNON.Box(new CANNON.Vec3(width/2, height/2, depth/2)),
-    position: new CANNON.Vec3(x, y, z),
+function mat(color, opts={}) {
+  return new THREE.MeshStandardMaterial({
+    color,
+    roughness: opts.roughness ?? 0.75,
+    metalness: 0,
+    emissive: opts.emissive ?? 0x000000,
+    emissiveIntensity: opts.emissiveIntensity ?? 0,
+    flatShading: true,
+    transparent: opts.transparent ?? false,
+    opacity: opts.opacity ?? 1,
   });
-  world.addBody(body);
-  return body;
 }
 
-// Floor + ceiling
-addStaticBox(10, 0.1, 10, 0, -0.05, 0);
-addStaticBox(10, 0.1, 10, 0, 3.65, 0);
-// Walls
-addStaticBox(0.2, 4, 8, -5, 1.8, 0);          // left
-addStaticBox(0.2, 4, 8,  5, 1.8, 0);          // right
-addStaticBox(10, 4, 0.2, 0, 1.8, BACK_Z);     // back
-addStaticBox(10, 4, 0.2, 0, 1.8, 4.5);        // front (so wisps don't drift toward camera forever)
-// Desk surface — wisps can settle on it
-addStaticBox(2.0, 0.08, 1.0, 1.3, 1.05, -2.6);
-// Bed surface
-addStaticBox(1.6, 0.4, 2.6, -3, 0.2, -1.8);
-addStaticBox(1.55, 0.22, 2.55, -3, 0.51, -1.8);
+function makeStall(data) {
+  const g = new THREE.Group();
+  g.position.copy(data.pos);
+  const base = new THREE.Mesh(new THREE.BoxGeometry(1.8, 0.9, 1.1), mat(0x4b2c3e));
+  base.position.y = 0.45; base.castShadow = true; base.receiveShadow = true; g.add(base);
+  const top = new THREE.Mesh(new THREE.ConeGeometry(1.18, 0.9, 4), mat(data.color, { emissive: data.color, emissiveIntensity: 0.08 }));
+  top.position.y = 1.32; top.rotation.y = Math.PI / 4; top.castShadow = true; g.add(top);
+  const glow = new THREE.PointLight(data.color, 0.8, 4, 2);
+  glow.position.set(0, 1.35, 0); g.add(glow);
+  scene.add(g);
+}
+Object.values(stalls).forEach(makeStall);
 
-// ===== Wisps — drifting intentions =====
-// Each wisp = mesh + cannon body. Float gently with light buoyancy when not held.
-const wisps = [];
-const WISP_COLORS = [
-  0xa8c4d8,  // soft cyan
-  0xb392e0,  // violet
-  0xe6b86f,  // amber
-  0xe69cb8,  // rose
-];
+// Lantern tree = visible progression, fiction-first.
+lanternTree.position.set(-5.25, 0, 3.7);
+const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.16, 2.0, 5), mat(0x3a221a));
+trunk.position.y = 1.0; trunk.castShadow = true; lanternTree.add(trunk);
+const branches = [];
+for (let i = 0; i < 5; i++) {
+  const branch = new THREE.Mesh(new THREE.CylinderGeometry(0.025, 0.04, 1.1, 4), mat(0x3a221a));
+  branch.position.set(Math.sin(i * 1.7) * 0.34, 1.35 + i * 0.16, Math.cos(i * 1.7) * 0.25);
+  branch.rotation.z = (i % 2 ? -0.8 : 0.8);
+  lanternTree.add(branch);
+  const lantern = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(0.16, 0),
+    mat(0x3f3248, { emissive: 0x000000, emissiveIntensity: 0 })
+  );
+  lantern.position.set(branch.position.x + (i % 2 ? -0.42 : 0.42), branch.position.y + 0.1, branch.position.z);
+  lantern.userData.lit = false;
+  lanternTree.add(lantern);
+  branches.push(lantern);
+}
+scene.add(lanternTree);
 
-function makeWisp(x, y, z, colorHex) {
-  // Visual — bigger, more visible, clearly interactive
-  const group = new THREE.Group();
-  const color = new THREE.Color(colorHex);
-  const core = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(0.1, 0),
-    new THREE.MeshStandardMaterial({
-      color, emissive: color, emissiveIntensity: 3.0,
-      roughness: 0.4, flatShading: true,
-    })
-  );
-  group.add(core);
-  const glow = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(0.22, 0),
-    new THREE.MeshBasicMaterial({
-      color, transparent: true, opacity: 0.5,
-      blending: THREE.AdditiveBlending, depthWrite: false,
-    })
-  );
-  group.add(glow);
-  const halo = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(0.45, 0),
-    new THREE.MeshBasicMaterial({
-      color, transparent: true, opacity: 0.18,
-      blending: THREE.AdditiveBlending, depthWrite: false,
-    })
-  );
-  group.add(halo);
-  // INVISIBLE generous hitbox — radius ~1.1 units, never rendered.
-  // This is what the raycaster hits so tapping is forgiving.
-  const hitbox = new THREE.Mesh(
-    new THREE.SphereGeometry(1.1, 8, 6),
-    new THREE.MeshBasicMaterial({ visible: false })
-  );
-  hitbox.userData.isHitbox = true;
-  group.add(hitbox);
-  // Tiny point light so wisp casts a soft colored glow on nearby surfaces
-  const wispLight = new THREE.PointLight(color, 0.4, 2.2, 2);
-  group.add(wispLight);
-  group.position.set(x, y, z);
-  scene.add(group);
+// Courier/player.
+const player = new THREE.Group();
+const body = new THREE.Mesh(new THREE.ConeGeometry(0.28, 0.62, 5), mat(0xf8c56d, { emissive: 0xf8c56d, emissiveIntensity: 0.05 }));
+body.position.y = 0.46; body.castShadow = true; player.add(body);
+const head = new THREE.Mesh(new THREE.IcosahedronGeometry(0.2, 0), mat(0xf1d0a0));
+head.position.y = 0.88; head.castShadow = true; player.add(head);
+const basketMesh = new THREE.Mesh(new THREE.BoxGeometry(0.45, 0.18, 0.28), mat(0x8a5238));
+basketMesh.position.set(0.34, 0.5, 0); basketMesh.castShadow = true; player.add(basketMesh);
+player.position.set(0, 0, 0);
+scene.add(player);
 
-  // Physics — sphere body, very low mass, high damping for soft float
-  const body = new CANNON.Body({
-    mass: 0.04,
-    material: wispMat,
-    shape: new CANNON.Sphere(0.1),
-    position: new CANNON.Vec3(x, y, z),
-    linearDamping: 0.75,
-    angularDamping: 0.9,
+function makeCustomer(color=0xb392e0) {
+  customerGroup.clear();
+  customerGroup.position.set(0, 0, -4.8);
+  const robe = new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.42, 0.8, 6), mat(color, { emissive: color, emissiveIntensity: 0.08 }));
+  robe.position.y = 0.4; robe.castShadow = true; customerGroup.add(robe);
+  const face = new THREE.Mesh(new THREE.IcosahedronGeometry(0.23, 0), mat(0xf3dec2));
+  face.position.y = 0.93; face.castShadow = true; customerGroup.add(face);
+  const bob = new THREE.PointLight(color, 0.5, 3.5, 2);
+  bob.position.y = 1.3; customerGroup.add(bob);
+  scene.add(customerGroup);
+}
+makeCustomer();
+
+// ---------- Items ----------
+function itemGeometry(item) {
+  if (item.shape === 'cup') return new THREE.CylinderGeometry(0.18, 0.14, 0.32, 6);
+  if (item.shape === 'bun') return new THREE.SphereGeometry(0.22, 8, 5);
+  if (item.shape === 'fruit') return new THREE.IcosahedronGeometry(0.24, 0);
+  if (item.shape === 'bowl') return new THREE.CylinderGeometry(0.26, 0.16, 0.18, 7);
+  if (item.shape === 'gem') return new THREE.OctahedronGeometry(0.24, 0);
+  return new THREE.ConeGeometry(0.18, 0.36, 6);
+}
+
+function spawnItems() {
+  itemMeshes.forEach(m => scene.remove(m.group));
+  itemMeshes.length = 0;
+  ITEM_IDS.forEach((id, idx) => {
+    const item = ITEMS[id];
+    const stall = stalls[item.stall];
+    for (let n = 0; n < 2; n++) {
+      const angle = (idx * 1.9 + n * 2.7) % (Math.PI * 2);
+      const r = 0.9 + n * 0.62;
+      const x = stall.pos.x + Math.cos(angle) * r;
+      const z = stall.pos.z + Math.sin(angle) * r;
+      const group = new THREE.Group();
+      group.position.set(x, 0, z);
+      const mesh = new THREE.Mesh(itemGeometry(item), mat(item.color, { emissive: item.color, emissiveIntensity: 0.28 }));
+      mesh.position.y = 0.35; mesh.castShadow = true; group.add(mesh);
+      const halo = new THREE.Mesh(new THREE.RingGeometry(0.28, 0.36, 10), new THREE.MeshBasicMaterial({
+        color: item.color, transparent: true, opacity: 0.26, side: THREE.DoubleSide,
+      }));
+      halo.rotation.x = -Math.PI / 2; halo.position.y = 0.03; group.add(halo);
+      group.userData.itemId = id;
+      group.userData.baseY = 0;
+      scene.add(group);
+      itemMeshes.push({ id, group, mesh, halo, cooldown: 0 });
+    }
   });
-  // Slight initial drift
-  body.velocity.set(
-    (Math.random() - 0.5) * 0.3,
-    (Math.random() - 0.2) * 0.2,
-    (Math.random() - 0.5) * 0.3
-  );
-  world.addBody(body);
+}
+spawnItems();
 
-  const wisp = { group, body, color, phase: Math.random()*Math.PI*2, baseY: y };
-  wisps.push(wisp);
-  return wisp;
+// ---------- UI ----------
+function renderLanterns() {
+  const el = document.getElementById('lanterns');
+  el.innerHTML = '';
+  for (let i = 0; i < 5; i++) {
+    const d = document.createElement('div');
+    d.className = 'lantern-dot' + (i < delivered ? ' lit' : '');
+    el.appendChild(d);
+  }
 }
 
-// Spawn 3 wisps in the foreground so they're impossible to miss
-makeWisp(-1.5, 1.7, 0.6, WISP_COLORS[0]);
-makeWisp(1.6, 1.8, 0.4, WISP_COLORS[1]);
-makeWisp(-0.3, 2.0, -0.8, WISP_COLORS[2]);
+function iconEl(id, done=false) {
+  const d = document.createElement('div');
+  d.className = 'icon' + (done ? ' done' : '');
+  d.textContent = ITEMS[id].icon;
+  d.title = ITEMS[id].name;
+  return d;
+}
 
-// Companion as a soft physics body (kinematic so script controls position
-// but it can exert attraction force on wisps)
-const companionBody = new CANNON.Body({
-  type: CANNON.Body.KINEMATIC,
-  mass: 0,
-  shape: new CANNON.Sphere(0.15),
-  position: new CANNON.Vec3(companion.position.x, companion.position.y, companion.position.z),
-});
-world.addBody(companionBody);
+function renderOrder() {
+  currentOrder = ORDERS[currentOrderIndex];
+  document.getElementById('customer-name').textContent = currentOrder.customer;
+  document.getElementById('customer-line').textContent = currentOrder.line;
+  const icons = document.getElementById('order-icons');
+  icons.innerHTML = '';
+  const used = {};
+  currentOrder.items.forEach((id) => {
+    used[id] = used[id] || 0;
+    const collected = basket.filter(x => x === id).length;
+    const done = collected > used[id];
+    if (done) used[id]++;
+    icons.appendChild(iconEl(id, done));
+  });
+  renderBasket();
+  renderLanterns();
+}
 
-// ===== Interaction — drag a wisp into something warm =====
+function renderBasket() {
+  const icons = document.getElementById('basket-icons');
+  icons.innerHTML = '';
+  basket.forEach(id => icons.appendChild(iconEl(id, true)));
+}
+
+function toast(text, dur=1200) {
+  const el = document.getElementById('toast');
+  clearTimeout(lastToast);
+  el.textContent = text;
+  el.classList.add('show');
+  lastToast = setTimeout(() => el.classList.remove('show'), dur);
+}
+
+// ---------- Audio ----------
+function initAudio() {
+  if (audioCtx) return;
+  audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+}
+function beep(freq=440, type='sine', gain=0.055, dur=0.25) {
+  if (!audioCtx) return;
+  const t = audioCtx.currentTime;
+  const osc = audioCtx.createOscillator();
+  const g = audioCtx.createGain();
+  osc.type = type; osc.frequency.value = freq;
+  g.gain.setValueAtTime(0, t);
+  g.gain.linearRampToValueAtTime(gain, t + 0.02);
+  g.gain.exponentialRampToValueAtTime(0.001, t + dur);
+  osc.connect(g).connect(audioCtx.destination);
+  osc.start(t); osc.stop(t + dur + 0.04);
+}
+
+// ---------- Game logic ----------
+function neededCounts() {
+  const c = {};
+  currentOrder.items.forEach(id => c[id] = (c[id] || 0) + 1);
+  basket.forEach(id => c[id] = (c[id] || 0) - 1);
+  return c;
+}
+
+function collectItem(itemObj) {
+  if (itemObj.cooldown > 0) return;
+  const counts = neededCounts();
+  if ((counts[itemObj.id] || 0) > 0) {
+    basket.push(itemObj.id);
+    itemObj.cooldown = 1.2;
+    createPuff(itemObj.group.position, ITEMS[itemObj.id].color, 8);
+    beep(520 + basket.length * 70, 'triangle', 0.055, 0.22);
+    toast(ITEMS[itemObj.id].name);
+    renderOrder();
+  } else {
+    itemObj.cooldown = 0.55;
+    wrongPickup(itemObj);
+  }
+}
+
+function wrongPickup(itemObj) {
+  createPuff(itemObj.group.position, 0xffffff, 12);
+  itemObj.mesh.scale.setScalar(1.4);
+  setTimeout(() => itemObj.mesh.scale.setScalar(1), 120);
+  const lines = ['not that sparkle.', 'too shiny.', 'wrong stall. funny though.', 'the basket spits it out.'];
+  toast(lines[Math.floor(Math.random() * lines.length)], 900);
+  beep(180, 'square', 0.025, 0.18);
+}
+
+function basketMatchesOrder() {
+  if (basket.length !== currentOrder.items.length) return false;
+  const need = {};
+  const have = {};
+  currentOrder.items.forEach(id => need[id] = (need[id] || 0) + 1);
+  basket.forEach(id => have[id] = (have[id] || 0) + 1);
+  return Object.keys(need).every(id => have[id] === need[id]);
+}
+
+function missingItemName() {
+  const counts = neededCounts();
+  const next = currentOrder.items.find(id => (counts[id] || 0) > 0);
+  return next ? ITEMS[next].name : 'the order';
+}
+
+function tryDeliver() {
+  const dist = player.position.distanceTo(customerGroup.position);
+  if (dist > 0.8) return;
+  if (basketMatchesOrder()) {
+    completeOrder();
+  } else if (basket.length > 0 || dist < 0.58) {
+    toast('still need ' + missingItemName(), 1100);
+  }
+}
+
+function completeOrder() {
+  delivered++;
+  const lantern = branches[delivered - 1];
+  if (lantern) {
+    lantern.material.color.setHex(0xf8c56d);
+    lantern.material.emissive.setHex(0xf8c56d);
+    lantern.material.emissiveIntensity = 1.7;
+    const light = new THREE.PointLight(0xf8c56d, 0.6, 3, 2);
+    light.position.copy(lantern.position);
+    lanternTree.add(light);
+  }
+  createPuff(customerGroup.position, 0xf8c56d, 24);
+  beep(660, 'triangle', 0.06, 0.18);
+  setTimeout(() => beep(880, 'triangle', 0.05, 0.26), 120);
+  const lines = ['served warm.', 'the stall smiles.', 'lantern awake.', 'market remembers.'];
+  toast(delivered >= 5 ? 'the lantern tree wakes.' : lines[(delivered - 1) % lines.length], 1500);
+  basket = [];
+  currentOrderIndex++;
+  if (currentOrderIndex >= ORDERS.length) {
+    setTimeout(endShift, 1100);
+  } else {
+    const colors = [0xb392e0, 0x8aa0ff, 0xe69cb8, 0x7edb9a, 0xe6b86f];
+    makeCustomer(colors[currentOrderIndex % colors.length]);
+    renderOrder();
+  }
+}
+
+function endShift() {
+  document.getElementById('customer-name').textContent = 'shift complete';
+  document.getElementById('customer-line').textContent = 'five lanterns awake. tap to run the market again.';
+  document.getElementById('order-icons').innerHTML = '';
+  toast('night market complete', 2400);
+  targetPoint = null;
+}
+
+function restartShift() {
+  delivered = 0; currentOrderIndex = 0; basket = [];
+  branches.forEach(l => {
+    l.material.color.setHex(0x3f3248);
+    l.material.emissive.setHex(0x000000);
+    l.material.emissiveIntensity = 0;
+  });
+  makeCustomer();
+  spawnItems();
+  renderOrder();
+  toast('market opens again', 1000);
+}
+
+// ---------- Effects ----------
+function createPuff(pos, color, count=10) {
+  for (let i = 0; i < count; i++) {
+    const m = new THREE.Mesh(
+      new THREE.IcosahedronGeometry(0.05 + Math.random() * 0.045, 0),
+      new THREE.MeshBasicMaterial({ color, transparent: true, opacity: 0.9 })
+    );
+    m.position.set(pos.x, 0.45 + Math.random() * 0.35, pos.z);
+    m.userData.vel = new THREE.Vector3(
+      (Math.random() - 0.5) * 0.06,
+      0.025 + Math.random() * 0.045,
+      (Math.random() - 0.5) * 0.06
+    );
+    m.userData.life = 1;
+    scene.add(m); puffs.push(m);
+  }
+}
+
+// ---------- Controls ----------
 const raycaster = new THREE.Raycaster();
 const pointer = new THREE.Vector2();
-let pulledWisp = null;
-let pullStrength = 0;
-let draggedWisp = null;
-let dragPoint = null;
-let dragStart = null;
-const dragPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), -1.72);
+const groundPlane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
 
-function spawnTapRipple(x, y) {
-  const r = document.createElement('div');
-  r.className = 'tap-ripple';
-  r.style.left = x + 'px';
-  r.style.top = y + 'px';
-  document.body.appendChild(r);
-  setTimeout(() => r.remove(), 720);
-}
-
-// Project a 3D point to 2D screen pixels
-const _projVec = new THREE.Vector3();
-function projectToScreen(pos3) {
-  _projVec.copy(pos3).project(camera);
-  return {
-    x: (_projVec.x * 0.5 + 0.5) * window.innerWidth,
-    y: (-_projVec.y * 0.5 + 0.5) * window.innerHeight,
-    z: _projVec.z,  // <1 = in front of camera
-  };
-}
-
-function chooseWispAt(x, y) {
-  pointer.x = (x / window.innerWidth) * 2 - 1;
-  pointer.y = -(y / window.innerHeight) * 2 + 1;
-  raycaster.setFromCamera(pointer, camera);
-  const hitboxes = wisps.map(w => w.group.children.find(c => c.userData && c.userData.isHitbox)).filter(Boolean);
-  const hits = raycaster.intersectObjects(hitboxes, false);
-  let chosen = null;
-  if (hits.length > 0) {
-    chosen = wisps.find(w => w.group.children.includes(hits[0].object));
-  }
-
-  // Fallback: 2D screen-space — find nearest wisp within 140px of tap
-  if (!chosen) {
-    let bestDist = 140;
-    for (const w of wisps) {
-      const sp = projectToScreen(w.group.position);
-      if (sp.z > 1) continue;  // behind camera
-      const dx = sp.x - x, dy = sp.y - y;
-      const d = Math.sqrt(dx*dx + dy*dy);
-      if (d < bestDist) { bestDist = d; chosen = w; }
-    }
-  }
-  return chosen;
-}
-
-function targetAtScreen(x, y) {
-  let best = null;
-  let bestDist = 150;
-  for (const target of targetZones) {
-    const sp = projectToScreen(target.pos);
-    if (sp.z > 1) continue;
-    const dx = sp.x - x, dy = sp.y - y;
-    const d = Math.sqrt(dx*dx + dy*dy);
-    if (d < bestDist) { bestDist = d; best = target; }
-  }
-  return best;
-}
-
-function updateDragPoint(x, y) {
-  pointer.x = (x / window.innerWidth) * 2 - 1;
-  pointer.y = -(y / window.innerHeight) * 2 + 1;
+function setMoveTarget(clientX, clientY) {
+  pointer.x = (clientX / window.innerWidth) * 2 - 1;
+  pointer.y = -(clientY / window.innerHeight) * 2 + 1;
   raycaster.setFromCamera(pointer, camera);
   const hit = new THREE.Vector3();
-  if (raycaster.ray.intersectPlane(dragPlane, hit)) {
-    dragPoint = hit;
+  if (raycaster.ray.intersectPlane(groundPlane, hit)) {
+    hit.x = THREE.MathUtils.clamp(hit.x, -6.3, 6.3);
+    hit.z = THREE.MathUtils.clamp(hit.z, -5.8, 5.7);
+    targetPoint = hit;
+    createPuff(hit, 0xf8c56d, 4);
   }
-}
-
-function setActiveTarget(target) {
-  activeTarget = target;
-  targetZones.forEach((t) => {
-    const isActive = t === target || (!target && t === currentWish);
-    t.halo.material.opacity = isActive ? t.halo.userData.activeOpacity : t.halo.userData.baseOpacity;
-    t.halo.scale.setScalar(isActive ? 1.25 : 1);
-  });
-}
-
-function setCurrentWish(target) {
-  currentWish = target;
-  document.getElementById('task-need').textContent = target.need;
-  document.getElementById('task-how').textContent = target.how;
-  document.getElementById('room-task').classList.add('show');
-  setActiveTarget(null);
-  updateTargetLabels();
-}
-
-function nextWishAfter(target) {
-  const remaining = targetZones.filter(t => t !== target);
-  const next = remaining[Math.floor(Math.random() * remaining.length)];
-  setTimeout(() => setCurrentWish(next), 1700);
-}
-
-function updateTargetLabels() {
-  targetZones.forEach((target) => {
-    const el = document.getElementById('label-' + target.name);
-    if (!el) return;
-    const sp = projectToScreen(target.pos);
-    el.style.left = sp.x + 'px';
-    el.style.top = sp.y + 'px';
-    el.style.display = sp.z < 1 ? 'block' : 'none';
-    el.classList.toggle('active', target === activeTarget || target === currentWish);
-    el.textContent = target === currentWish ? target.label + ' wants this' : target.label;
-  });
 }
 
 window.addEventListener('pointerdown', (ev) => {
-  if (!inRoom) return;
-  if (!actx) initAudio();
-  // Ignore taps on quest-action pills — they have their own handlers
-  if (ev.target && ev.target.closest && ev.target.closest('#quest-actions')) return;
-
-  // Player took an action — cancel the first-time hint
-  if (firstHintPending) { clearTimeout(firstHintPending); firstHintPending = null; }
-
-  const x = ev.clientX ?? (ev.touches && ev.touches[0].clientX) ?? 0;
-  const y = ev.clientY ?? (ev.touches && ev.touches[0].clientY) ?? 0;
-  spawnTapRipple(x, y);
-
-  const chosen = chooseWispAt(x, y);
-
-  if (chosen) {
-    draggedWisp = chosen;
-    pulledWisp = null;
-    dragStart = { x, y };
-    chosen.body.velocity.set(0, 0, 0);
-    updateDragPoint(x, y);
-    whisper(currentWish ? 'bring it to the ' + currentWish.label + '.' : 'bring it somewhere warm.', 2600);
-    document.getElementById('room-hint').classList.remove('show');
+  initAudio();
+  if (!started) {
+    started = true;
+    document.getElementById('start').classList.add('fade');
+    renderOrder();
+    toast('first order!', 900);
+    return;
   }
+  if (currentOrderIndex >= ORDERS.length) {
+    restartShift();
+    return;
+  }
+  setMoveTarget(ev.clientX, ev.clientY);
 });
+window.addEventListener('keydown', ev => { keys[ev.key.toLowerCase()] = true; });
+window.addEventListener('keyup', ev => { keys[ev.key.toLowerCase()] = false; });
 
-window.addEventListener('pointermove', (ev) => {
-  if (!draggedWisp) return;
-  const x = ev.clientX ?? 0;
-  const y = ev.clientY ?? 0;
-  updateDragPoint(x, y);
-  setActiveTarget(targetAtScreen(x, y));
-});
-
-window.addEventListener('pointerup', (ev) => {
-  if (!draggedWisp) return;
-  const x = ev.clientX ?? 0;
-  const y = ev.clientY ?? 0;
-  let target = activeTarget || targetAtScreen(x, y);
-  const moved = dragStart ? Math.hypot(x - dragStart.x, y - dragStart.y) : 999;
-  if (!target) {
-    for (const t of targetZones) {
-      const dx = t.pos.x - draggedWisp.group.position.x;
-      const dy = t.pos.y - draggedWisp.group.position.y;
-      const dz = t.pos.z - draggedWisp.group.position.z;
-      if (Math.sqrt(dx*dx + dy*dy + dz*dz) < t.radius) {
-        target = t;
-        break;
-      }
-    }
-  }
-  if (!target && moved < 18 && currentWish) {
-    target = currentWish;
-  }
-  if (target) {
-    placeWispInTarget(draggedWisp, target);
-  } else {
-    whisper(currentWish ? 'try the ' + currentWish.label + '.' : 'lamp, plant, or window.', 3200);
-  }
-  draggedWisp = null;
-  dragStart = null;
-  setActiveTarget(null);
-});
-
-
-const RAIN_COUNT = 220;
-const rainGeo = new THREE.BufferGeometry();
-const rainPos = new Float32Array(RAIN_COUNT * 3);
-for (let i = 0; i < RAIN_COUNT; i++) {
-  rainPos[i*3]   = WIN_X + (Math.random() - 0.5) * WIN_W * 1.5;
-  rainPos[i*3+1] = WIN_Y + Math.random() * WIN_H * 1.5;
-  rainPos[i*3+2] = BACK_Z - 0.2 - Math.random() * 2.5;
-}
-rainGeo.setAttribute('position', new THREE.BufferAttribute(rainPos, 3));
-const rain = new THREE.Points(rainGeo, new THREE.PointsMaterial({
-  color: 0x8aa0c0, size: 0.025, transparent: true, opacity: 0.45,
-  blending: THREE.AdditiveBlending, depthWrite: false
-}));
-scene.add(rain);
-
-// ===== Indoor dust motes — drifting in lamp light =====
-const DUST_COUNT = 120;
-const dustGeo = new THREE.BufferGeometry();
-const dustPos = new Float32Array(DUST_COUNT * 3);
-const dustPhase = new Float32Array(DUST_COUNT);
-for (let i = 0; i < DUST_COUNT; i++) {
-  dustPos[i*3]   = (Math.random() - 0.5) * 6;
-  dustPos[i*3+1] = 0.5 + Math.random() * 2.5;
-  dustPos[i*3+2] = -3 + Math.random() * 5;
-  dustPhase[i] = Math.random() * Math.PI * 2;
-}
-dustGeo.setAttribute('position', new THREE.BufferAttribute(dustPos, 3));
-const dust = new THREE.Points(dustGeo, new THREE.PointsMaterial({
-  color: 0xf5d89a, size: 0.04, transparent: true, opacity: 0.5,
-  blending: THREE.AdditiveBlending, depthWrite: false
-}));
-scene.add(dust);
-
-// Far back ambience motes (visible through window)
-const skyMoteGeo = new THREE.BufferGeometry();
-const skyMotePos = new Float32Array(80 * 3);
-for (let i = 0; i < 80; i++) {
-  skyMotePos[i*3]   = (Math.random() - 0.5) * 8;
-  skyMotePos[i*3+1] = WIN_Y + (Math.random() - 0.5) * 3;
-  skyMotePos[i*3+2] = BACK_Z - 4 - Math.random() * 4;
-}
-skyMoteGeo.setAttribute('position', new THREE.BufferAttribute(skyMotePos, 3));
-const skyMotes = new THREE.Points(skyMoteGeo, new THREE.PointsMaterial({
-  color: 0x6d8db0, size: 0.06, transparent: true, opacity: 0.35,
-  blending: THREE.AdditiveBlending, depthWrite: false
-}));
-scene.add(skyMotes);
-
-// ===== Post-processing pipeline =====
-const composer = new THREE.EffectComposer(renderer);
-composer.setSize(window.innerWidth, window.innerHeight);
-composer.addPass(new THREE.RenderPass(scene, camera));
-
-const bloomPass = new THREE.UnrealBloomPass(
-  new THREE.Vector2(window.innerWidth, window.innerHeight),
-  0.45,   // strength — warm but controlled
-  0.6,    // radius
-  0.55    // threshold — only very bright stuff blooms
-);
-composer.addPass(bloomPass);
-
-const CinematicShader = {
-  uniforms: {
-    tDiffuse:        { value: null },
-    time:            { value: 0 },
-    grainStrength:   { value: 0.04 },
-    vignetteStrength:{ value: 0.55 },
-    chromaStrength:  { value: 0.0012 },
-  },
-  vertexShader: `
-    varying vec2 vUv;
-    void main() { vUv = uv; gl_Position = projectionMatrix * modelViewMatrix * vec4(position, 1.0); }
-  `,
-  fragmentShader: `
-    uniform sampler2D tDiffuse;
-    uniform float time, grainStrength, vignetteStrength, chromaStrength;
-    varying vec2 vUv;
-    float rand(vec2 st) { return fract(sin(dot(st.xy, vec2(12.9898, 78.233))) * 43758.5453123); }
-    void main() {
-      vec2 uv = vUv;
-      vec2 center = uv - 0.5;
-      float dist = length(center);
-      float ca = chromaStrength * (0.4 + dist);
-      float r = texture2D(tDiffuse, uv + center * ca).r;
-      float g = texture2D(tDiffuse, uv).g;
-      float b = texture2D(tDiffuse, uv - center * ca).b;
-      vec3 color = vec3(r, g, b);
-      float grain = rand(uv + fract(time)) - 0.5;
-      color += grain * grainStrength;
-      float vig = smoothstep(0.9, 0.2, dist);
-      color *= mix(1.0 - vignetteStrength, 1.0, vig);
-      gl_FragColor = vec4(color, 1.0);
-    }
-  `
-};
-const cinematicPass = new THREE.ShaderPass(CinematicShader);
-cinematicPass.renderToScreen = true;
-composer.addPass(cinematicPass);
-
-window.addEventListener('resize', () => {
-  camera.aspect = window.innerWidth/window.innerHeight;
-  camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-  composer.setSize(window.innerWidth, window.innerHeight);
-  bloomPass.setSize(window.innerWidth, window.innerHeight);
-});
-
-// ===== Audio — rain + soft hum =====
-let actx = null;
-let rainGain = null, humGain = null;
-function initAudio() {
-  if (actx) return;
-  actx = new (window.AudioContext || window.webkitAudioContext)();
-
-  // Rain — filtered noise
-  const buf = actx.createBuffer(1, actx.sampleRate * 2, actx.sampleRate);
-  const data = buf.getChannelData(0);
-  for (let i = 0; i < data.length; i++) data[i] = (Math.random() * 2 - 1) * 0.5;
-  const noise = actx.createBufferSource();
-  noise.buffer = buf; noise.loop = true;
-  const bp = actx.createBiquadFilter();
-  bp.type = 'bandpass'; bp.frequency.value = 1100; bp.Q.value = 0.6;
-  rainGain = actx.createGain();
-  rainGain.gain.setValueAtTime(0, actx.currentTime);
-  rainGain.gain.linearRampToValueAtTime(0.06, actx.currentTime + 3.5);
-  noise.connect(bp).connect(rainGain).connect(actx.destination);
-  noise.start();
-
-  // Warm hum — two low sines
-  const osc1 = actx.createOscillator(); osc1.frequency.value = 55; osc1.type = 'sine';
-  const osc2 = actx.createOscillator(); osc2.frequency.value = 110; osc2.type = 'sine';
-  humGain = actx.createGain();
-  humGain.gain.setValueAtTime(0, actx.currentTime);
-  humGain.gain.linearRampToValueAtTime(0.025, actx.currentTime + 4);
-  osc1.connect(humGain); osc2.connect(humGain);
-  humGain.connect(actx.destination);
-  osc1.start(); osc2.start();
-}
-
-// ===== Whisper line =====
-const whisperEl = document.getElementById('whisper');
-let whisperTimeout = null;
-function whisper(text, dur=4500) {
-  clearTimeout(whisperTimeout);
-  if (!text) { whisperEl.classList.remove('show'); return; }
-  whisperEl.textContent = text;
-  whisperEl.classList.add('show');
-  whisperTimeout = setTimeout(() => whisperEl.classList.remove('show'), dur);
-}
-
-// ===== Onboarding flow =====
-let inRoom = false;
-function advanceOnboard() {
-  onboardScreen++;
-  if (onboardScreen < ONBOARD.length) {
-    showOnboardScreen(onboardScreen);
-  } else {
-    document.getElementById('onboard').classList.add('fade');
-    setTimeout(enterRoom, 1500);
-  }
-}
-
-let firstHintPending = null;
-function enterRoom() {
-  inRoom = true;
-  setCurrentWish(targetZones[0]);
-  // First whisper — companion notices you, then points at the toy.
-  setTimeout(() => whisper('oh — hi.', 3200), 1200);
-  setTimeout(() => whisper('the lamp is asking first.', 4500), 4300);
-  // Gentle affordance hint — only if the player hasn't touched a wisp by 7s
-  firstHintPending = setTimeout(() => {
-    whisper('tap any wisp. i can carry it.', 6000);
-    firstHintPending = null;
-  }, 7000);
-}
-
-// ===== Wisp crystallization =====
-// When a pulled wisp reaches the companion, it transforms into a tiny quest line.
-// For v0.2 we hardcode a pool of tiny quests. v1 will use the Anthropic API.
-const TINY_QUESTS = [
-  'stand up for a minute.',
-  'drink a sip of water.',
-  'open the tab. nothing else.',
-  'write only the title.',
-  'put one thing in the laundry pile.',
-  'breathe out. that\'s the whole thing.',
-  'message one person. one line.',
-  'step outside the door.',
-];
-
-function dissolveWisp(wisp, targetPos=null) {
-  if (!wisp || !wisps.includes(wisp)) return;
-  if (targetPos) {
-    wisp.body.position.set(targetPos.x, targetPos.y, targetPos.z);
-    wisp.group.position.copy(targetPos);
-  }
-  const start = performance.now();
-  (function fade() {
-    const t = Math.min(1, (performance.now() - start) / 520);
-    const ease = 1 - Math.pow(1 - t, 3);
-    wisp.group.scale.setScalar(1 + ease * 0.75);
-    wisp.group.children.forEach(child => {
-      if (child.material && child.material.transparent !== false) {
-        child.material.opacity = (1 - t) * (child.material.opacity || 1);
-      }
-      if (child.isPointLight) child.intensity = 0.4 * (1 - t);
-    });
-    if (t < 1) requestAnimationFrame(fade);
-    else {
-      scene.remove(wisp.group);
-      world.removeBody(wisp.body);
-      const idx = wisps.indexOf(wisp);
-      if (idx >= 0) wisps.splice(idx, 1);
-    }
-  })();
-}
-
-function placeWispInTarget(wisp, target) {
-  hideQuestActions();
-  dissolveWisp(wisp, target.pos);
-  if (target.name === 'lamp') warmLamp();
-  if (target.name === 'plant') growPlant();
-  if (target.name === 'window') clearWindow();
-  nextWishAfter(target);
-  setTimeout(() => {
-    whisper('want one tiny step?', 30000);
-    showQuestActions(target.color);
-  }, 900);
-  scheduleNextWisp(2600);
-}
-
-function warmLamp() {
-  lampWarmth = Math.min(1, lampWarmth + 0.25);
-  const start = performance.now();
-  const dur = 1800;
-  (function pulse() {
-    const t = Math.min(1, (performance.now() - start) / dur);
-    const e = Math.sin(t * Math.PI);
-    lampLight.intensity = 1.6 + lampWarmth * 0.6 + e * 1.4;
-    lampShade.material.emissiveIntensity = 0.55 + lampWarmth * 0.35 + e * 0.8;
-    lamp.rotation.z = Math.sin(t * Math.PI * 5) * 0.035 * (1 - t);
-    if (t < 1) requestAnimationFrame(pulse);
-    else lamp.rotation.z = 0;
-  })();
-  whisper('the lamp found you.', 2600);
-}
-
-function growPlant() {
-  plantGrowth = Math.min(1, plantGrowth + 0.22);
-  plantLeaves.forEach((leaf, i) => {
-    const base = 1 + plantGrowth * 0.45;
-    leaf.scale.setScalar(base + (i % 2) * 0.08);
-    leaf.rotation.z += 0.12;
-  });
-  spawnSeed();
-  whisper('the plant stretched.', 2600);
-}
-
-function clearWindow() {
-  windowClarity = Math.min(1, windowClarity + 0.25);
-  glass.material.opacity = Math.max(0.22, 0.55 - windowClarity * 0.25);
-  rain.material.opacity = Math.max(0.16, 0.45 - windowClarity * 0.18);
-  scene.fog.density = Math.max(0.048, 0.075 - windowClarity * 0.02);
-  moonLight.intensity = 0.5 + windowClarity * 0.25;
-  whisper('the rain stepped back.', 2600);
-}
-
-function crystallizeWisp(wisp) {
-  // Burst the wisp's mesh
-  for (let i = 0; i < 18; i++) {
-    const angle = (i/18) * Math.PI*2;
-    const speed = 0.08 + Math.random()*0.05;
-    wisp.body.velocity.set(
-      Math.cos(angle) * speed,
-      0.15 + Math.random()*0.1,
-      Math.sin(angle) * speed
-    );
-  }
-  // Fade & remove the wisp
-  const start = performance.now();
-  (function fade() {
-    const t = Math.min(1, (performance.now() - start) / 600);
-    wisp.group.children.forEach(child => {
-      if (child.material) child.material.opacity = (1 - t) * (child.material.opacity || 1);
-    });
-    if (t < 1) requestAnimationFrame(fade);
-    else {
-      scene.remove(wisp.group);
-      world.removeBody(wisp.body);
-      const idx = wisps.indexOf(wisp);
-      if (idx >= 0) wisps.splice(idx, 1);
-    }
-  })();
-
-  // Show the tiny quest line, then offer "done / not yet"
-  const quest = TINY_QUESTS[Math.floor(Math.random()*TINY_QUESTS.length)];
-  setTimeout(() => {
-    whisper(quest, 30000); // hold the line until the player chooses
-    showQuestActions(wisp.color.getHex());
-  }, 700);
-}
-
-// ===== Quest actions =====
-function showQuestActions(colorHex) {
-  const el = document.getElementById('quest-actions');
-  el.classList.add('show');
-}
-function hideQuestActions() {
-  document.getElementById('quest-actions').classList.remove('show');
-}
-
-document.getElementById('quest-done').addEventListener('click', (ev) => {
-  ev.stopPropagation();
-  hideQuestActions();
-  const quest = TINY_QUESTS[Math.floor(Math.random()*TINY_QUESTS.length)];
-  whisper(quest, 12000);
-});
-document.getElementById('quest-skip').addEventListener('click', (ev) => {
-  ev.stopPropagation();
-  hideQuestActions();
-  whisper('still here when you want.', 3500);
-});
-
-function scheduleNextWisp(delay=4500) {
-  setTimeout(() => {
-    if (wisps.length >= 3) return;
-    const wx = -1.7 + Math.random()*3.4;
-    const wy = 1.6 + Math.random()*0.6;
-    const wz = -0.8 + Math.random()*1.8;
-    const wc = WISP_COLORS[Math.floor(Math.random()*WISP_COLORS.length)];
-    makeWisp(wx, wy, wz, wc);
-  }, delay);
-}
-
-// ===== Room responds to "done" =====
-// 1. Lamp pulses warmer for ~3s
-// 2. A small seed accumulates on the windowsill
-// 3. Companion whispers warmly
-// 4. Soft chime
-const seeds = [];
-function roomResponds() {
-  // 1. Lamp warm pulse
-  const startE = lampLight.intensity;
-  const pulseStart = performance.now();
-  const pulseDur = 2800;
-  (function lampPulse() {
-    const t = Math.min(1, (performance.now() - pulseStart) / pulseDur);
-    // up then down — ease in/out
-    const e = Math.sin(t * Math.PI);
-    lampLight.intensity = 1.6 + e * 1.2;
-    lampShade.material.emissiveIntensity = 0.55 + e * 0.6;
-    if (t < 1) requestAnimationFrame(lampPulse);
-    else {
-      lampLight.intensity = 1.6;
-      lampShade.material.emissiveIntensity = 0.55;
-    }
-  })();
-
-  // 2. Seed on windowsill — small persistent glow
-  spawnSeed();
-
-  // 3. Companion warm line
-  const lines = ['oh. nice one.', 'mm.', '...there.', 'good.', 'soft.'];
-  whisper(lines[Math.floor(Math.random()*lines.length)], 3000);
-
-  // 4. Chime — soft warm two-note
-  chimeDone();
-}
-
-function spawnSeed() {
-  // Seeds accumulate on the windowsill (left side of room, under window).
-  // Each seed is a small glowing icosahedron — warm amber.
-  const idx = seeds.length;
-  const cols = 6;
-  const row = Math.floor(idx / cols);
-  const col = idx % cols;
-  const sx = WIN_X - WIN_W/2 + 0.18 + col * 0.24;
-  const sy = WIN_Y - WIN_H/2 - 0.02 + row * 0.12;
-  const sz = BACK_Z + 0.22;
-
-  const c = new THREE.Color(0xf5d89a);
-  const seed = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(0.06, 0),
-    new THREE.MeshStandardMaterial({
-      color: c, emissive: c, emissiveIntensity: 2.2,
-      roughness: 0.4, flatShading: true,
-    })
-  );
-  const seedGlow = new THREE.Mesh(
-    new THREE.IcosahedronGeometry(0.12, 0),
-    new THREE.MeshBasicMaterial({
-      color: c, transparent: true, opacity: 0.4,
-      blending: THREE.AdditiveBlending, depthWrite: false,
-    })
-  );
-  const group = new THREE.Group();
-  group.add(seed); group.add(seedGlow);
-  group.position.set(sx, sy, sz);
-  group.scale.setScalar(0);  // start tiny, grow in
-  scene.add(group);
-  seeds.push({ group, basePhase: Math.random()*Math.PI*2 });
-
-  // Grow-in animation
-  const start = performance.now();
-  (function grow() {
-    const t = Math.min(1, (performance.now() - start) / 800);
-    const e = 1 - Math.pow(1 - t, 3);
-    group.scale.setScalar(e);
-    if (t < 1) requestAnimationFrame(grow);
-  })();
-}
-
-function chimeDone() {
-  if (!actx) return;
-  // Warm two-note, never triumphant
-  [392.0, 523.25].forEach((f, i) => {
-    const t0 = actx.currentTime + i * 0.15;
-    const osc = actx.createOscillator();
-    const g = actx.createGain();
-    osc.type = 'sine'; osc.frequency.value = f;
-    g.gain.setValueAtTime(0, t0);
-    g.gain.linearRampToValueAtTime(0.07, t0 + 0.03);
-    g.gain.exponentialRampToValueAtTime(0.001, t0 + 1.2);
-    osc.connect(g).connect(actx.destination);
-    osc.start(t0); osc.stop(t0 + 1.3);
-  });
-}
-
-
-
-// ===== Animation loop =====
-let t0 = performance.now();
-function animate() {
+// ---------- Loop ----------
+let last = performance.now();
+function animate(now=performance.now()) {
   requestAnimationFrame(animate);
-  const now = performance.now();
-  const t = (now - t0) / 1000;
-  const dt = Math.min(0.05, t - (animate.lastT || t));
-  animate.lastT = t;
+  const dt = Math.min(0.033, (now - last) / 1000);
+  last = now;
+  const t = now / 1000;
 
-  // Companion drift — slow figure-8 near the desk
-  const ct = t * 0.4;
-  companion.position.x = 0.4 + Math.sin(ct) * 0.4;
-  companion.position.y = 1.5 + Math.sin(ct * 1.7) * 0.12;
-  companion.position.z = -1.5 + Math.cos(ct * 0.7) * 0.3;
-  companion.rotation.y += dt * 0.6;
-  compCore.rotation.x += dt * 0.3;
-  // Mirror companion position to physics body so wisps know where to go
-  companionBody.position.set(companion.position.x, companion.position.y, companion.position.z);
+  let move = new THREE.Vector3();
+  if (keys.w || keys.arrowup) move.z -= 1;
+  if (keys.s || keys.arrowdown) move.z += 1;
+  if (keys.a || keys.arrowleft) move.x -= 1;
+  if (keys.d || keys.arrowright) move.x += 1;
+  if (move.lengthSq() > 0) {
+    move.normalize().multiplyScalar(3.2 * dt);
+    player.position.add(move);
+    targetPoint = null;
+  } else if (targetPoint) {
+    const to = new THREE.Vector3(targetPoint.x - player.position.x, 0, targetPoint.z - player.position.z);
+    const d = to.length();
+    if (d < 0.08) targetPoint = null;
+    else player.position.add(to.normalize().multiplyScalar(Math.min(d, 3.0 * dt)));
+  }
+  player.position.x = THREE.MathUtils.clamp(player.position.x, -6.4, 6.4);
+  player.position.z = THREE.MathUtils.clamp(player.position.z, -5.9, 5.9);
+  if (move.lengthSq() > 0 || targetPoint) {
+    const look = targetPoint || player.position.clone().add(move);
+    player.rotation.y = Math.atan2(look.x - player.position.x, look.z - player.position.z);
+  }
+  player.position.y = Math.sin(t * 10) * 0.025;
 
-  // ---- Physics step ----
-  world.step(1/60, dt, 3);
-
-  // ---- Wisps: drift + buoyancy + attraction ----
-  wisps.forEach((w) => {
-    w.phase += dt * 0.9;
-
-    // Soft buoyancy — wisps want to hover around 1.6-2.2 in y
-    const targetY = 1.8 + Math.sin(w.phase) * 0.3;
-    const dy = targetY - w.body.position.y;
-    w.body.applyForce(new CANNON.Vec3(0, dy * 0.04, 0), w.body.position);
-
-    // Gentle wander in x/z (sin-wave drift)
-    w.body.applyForce(new CANNON.Vec3(
-      Math.sin(w.phase * 1.3) * 0.008,
-      0,
-      Math.cos(w.phase * 0.7) * 0.008,
-    ), w.body.position);
-
-    // If THIS wisp is being dragged by the player, follow the pointer like a toy.
-    if (draggedWisp === w && dragPoint) {
-      const dx = dragPoint.x - w.body.position.x;
-      const dy = dragPoint.y - w.body.position.y;
-      const dz = dragPoint.z - w.body.position.z;
-      w.body.applyForce(new CANNON.Vec3(dx * 0.35, dy * 0.35, dz * 0.35), w.body.position);
-      w.group.scale.setScalar(1.18 + Math.sin(t * 5) * 0.04);
-    }
-
-    // Legacy attraction path retained for safety, but v0.4 uses drag + place.
-    if (pulledWisp === w) {
-      const cx = companion.position.x - w.body.position.x;
-      const cy = companion.position.y - w.body.position.y;
-      const cz = companion.position.z - w.body.position.z;
-      const dist = Math.sqrt(cx*cx + cy*cy + cz*cz);
-      if (dist > 0.001) {
-        const force = 0.15 * pullStrength;
-        w.body.applyForce(new CANNON.Vec3(
-          (cx / dist) * force,
-          (cy / dist) * force,
-          (cz / dist) * force,
-        ), w.body.position);
-      }
-      // Crystallize when close
-      if (dist < 0.35) {
-        dissolveWisp(w, companion.position);
-        whisper('want one tiny step?', 30000);
-        showQuestActions(0xf5d89a);
-        scheduleNextWisp(2600);
-        pulledWisp = null;
-      }
-    }
-
-    // Sync mesh to physics body
-    w.group.position.set(w.body.position.x, w.body.position.y, w.body.position.z);
-
-    // Stronger breathing — wisps clearly say "tap me"
-    const breath = 0.75 + Math.sin(t * 2.2 + w.phase) * 0.35;
-    w.group.children[0].material.emissiveIntensity = 3.0 * breath;
-    w.group.children[1].material.opacity = 0.5 * breath;
-    w.group.children[2].material.opacity = 0.18 * breath;
-    const dragBoost = draggedWisp === w ? 0.28 : 0;
-    w.group.scale.setScalar(0.95 + dragBoost + Math.sin(t * 1.5 + w.phase) * 0.1);
-    w.group.children[0].rotation.x += dt * 0.5;
-    w.group.children[0].rotation.y += dt * 0.4;
+  itemMeshes.forEach(obj => {
+    obj.cooldown = Math.max(0, obj.cooldown - dt);
+    obj.group.rotation.y += dt * 0.8;
+    obj.group.position.y = Math.sin(t * 2 + obj.group.position.x) * 0.045;
+    obj.halo.material.opacity = 0.18 + Math.sin(t * 3 + obj.group.position.z) * 0.08;
+    if (player.position.distanceTo(obj.group.position) < 0.5) collectItem(obj);
   });
-  // Subtle breathing in the glow
-  const breath = 0.85 + Math.sin(t * 0.8) * 0.15;
-  compInner.material.opacity = 0.35 * breath;
-  compOuter.material.opacity = 0.12 * breath;
-  compHalo.material.opacity = 0.6 * breath;
+  tryDeliver();
 
-  // Lamp flicker — very subtle
-  const flicker = 1.0 + Math.sin(t * 9.7) * 0.015 + Math.sin(t * 17.3) * 0.01;
-  lampLight.intensity = (1.6 + lampWarmth * 0.55) * flicker;
-  lampShade.material.emissiveIntensity = (0.55 + lampWarmth * 0.32) * flicker;
+  customerGroup.position.y = Math.sin(t * 2.2) * 0.06;
+  customerGroup.rotation.y = Math.sin(t * 1.4) * 0.2;
+  lanternTree.rotation.y = Math.sin(t * 0.35) * 0.05;
 
-  // Rain — falls in z+y, recycles at top
-  const rp = rain.geometry.attributes.position.array;
-  for (let i = 0; i < rp.length; i += 3) {
-    rp[i+1] -= 0.07;
-    rp[i+2] += 0.005;
-    if (rp[i+1] < WIN_Y - WIN_H/2 - 0.3) {
-      rp[i+1] = WIN_Y + WIN_H * 0.8;
-      rp[i+2] = BACK_Z - 0.2 - Math.random() * 2.5;
+  for (let i = puffs.length - 1; i >= 0; i--) {
+    const p = puffs[i];
+    p.position.add(p.userData.vel);
+    p.userData.vel.y -= 0.0015;
+    p.userData.life -= dt * 1.8;
+    p.material.opacity = Math.max(0, p.userData.life);
+    p.scale.multiplyScalar(1.015);
+    if (p.userData.life <= 0) {
+      scene.remove(p); puffs.splice(i, 1);
     }
   }
-  rain.geometry.attributes.position.needsUpdate = true;
 
-  // Dust motes — gentle sin-wave drift
-  const dp = dust.geometry.attributes.position.array;
-  for (let i = 0; i < dp.length / 3; i++) {
-    dustPhase[i] += dt * 0.6;
-    dp[i*3]   += Math.sin(dustPhase[i] + i) * 0.0008;
-    dp[i*3+1] += 0.0005;
-    dp[i*3+2] += Math.cos(dustPhase[i] * 0.7) * 0.0006;
-    if (dp[i*3+1] > 3.2) dp[i*3+1] = 0.4;
-  }
-  dust.geometry.attributes.position.needsUpdate = true;
+  camera.position.x += (player.position.x * 0.18 - camera.position.x) * 0.04;
+  camera.position.z += ((8.5 + player.position.z * 0.08) - camera.position.z) * 0.04;
+  camera.lookAt(camera.position.x * 0.35, 0, player.position.z * 0.16);
 
-  // Sky motes — very slow drift
-  const sp = skyMotes.geometry.attributes.position.array;
-  for (let i = 0; i < sp.length; i += 3) {
-    sp[i] += 0.0005;
-    if (sp[i] > 4) sp[i] = -4;
-  }
-  skyMotes.geometry.attributes.position.needsUpdate = true;
-
-  // Camera — subtle breathing — feels alive without being motion-sick
-  camera.position.y = 1.85 + Math.sin(t * 0.4) * 0.025;
-  camera.position.x = Math.sin(t * 0.25) * 0.05;
-  camera.lookAt(0, 1.4 + Math.sin(t * 0.3) * 0.04, -2);
-
-  // Animate seeds — gentle breathing glow
-  seeds.forEach((s, i) => {
-    const phase = s.basePhase + t * 0.7;
-    const breath = 0.85 + Math.sin(phase) * 0.15;
-    if (s.group.children[0].material) s.group.children[0].material.emissiveIntensity = 2.2 * breath;
-    if (s.group.children[1].material) s.group.children[1].material.opacity = 0.4 * breath;
-  });
-
-  // Target halos breathe quietly; when dragging, the active target blooms.
-  targetZones.forEach((target, i) => {
-    const highlighted = target === activeTarget || target === currentWish;
-    const base = highlighted ? target.halo.userData.activeOpacity : target.halo.userData.baseOpacity;
-    target.halo.material.opacity = base * (0.82 + Math.sin(t * 1.6 + i) * 0.18);
-    if (target !== activeTarget) {
-      target.halo.scale.setScalar((highlighted ? 1.22 : 1) + Math.sin(t * 1.1 + i) * 0.03);
-    }
-  });
-  updateTargetLabels();
-
-  cinematicPass.uniforms.time.value = t;
-  composer.render();
+  renderer.render(scene, camera);
 }
 animate();
+
+window.addEventListener('resize', () => {
+  const aspect = window.innerWidth / window.innerHeight;
+  const frustum = window.innerWidth < 700 ? 9.2 : 11.5;
+  camera.left = -frustum * aspect / 2;
+  camera.right = frustum * aspect / 2;
+  camera.top = frustum / 2;
+  camera.bottom = -frustum / 2;
+  camera.updateProjectionMatrix();
+  renderer.setSize(window.innerWidth, window.innerHeight);
+});
+
+renderLanterns();
 </script>
 </body>
 </html>

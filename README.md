@@ -1,90 +1,111 @@
-# MOMENTUM
+# Night Market Memory
 
-A cozy emotional-regulation game disguised as a quiet room.
-
-For ADHD brains. (Made by one.)
+A cozy-chaotic casual game with ADHD-friendly design hidden under a magical night-market fantasy.
 
 ## What it is
 
-You enter a small bedroom-studio. It's late. The lamp is warm. Rain on the window. A small companion drifts by the desk.
+You are a teen courier in a strange market that only opens before sunrise. Customers ask for odd little orders: moon tea, blue buns, star plums, fox candy. You run through the plaza, collect the right items, ignore shiny wrong ones, deliver the order, and wake one lantern on the tree.
 
-When something is heavy, you gather a wisp and place it somewhere warm: the lamp, the plant, or the window. The room changes first. A tiny first step is optional after that. Then you leave. Do the thing (or don't). Come back whenever. The room stayed warm for you.
+The game is not presented as therapy, productivity, or brain training. It is a small order-running game first.
 
-The reward is **state improvement**, not task completion. The room calms with you. The companion stays.
+## Why this direction
 
-## What it explicitly is not
+The earlier MOMENTUM room prototype was calm but not fun. It felt like a meditation/productivity app, not a game. The current direction follows proven indie/casual patterns:
 
-- A productivity app
-- A task manager
-- A brain-training game
-- A therapy app
-- A medication alternative
-- An EndeavorRx competitor
+- immediate verb
+- short order loop
+- visible payoff
+- tactile item pickup
+- story through customers
+- progression through the market itself
 
-No streaks. No daily goals. No "you missed N quests." No XP. No leveling. No push notifications.
+## Current prototype
 
-MOMENTUM does not claim to treat ADHD, reduce symptoms, or improve attention. It is a non-clinical support experience: a calm room for externalizing scattered intentions and turning them into tiny optional first steps.
+Vertical slice:
 
-## Status
+- One low-poly night-market plaza
+- Three stalls
+- Six collectible items
+- Five customer orders
+- Tap-to-move and keyboard movement
+- Basket UI
+- Wrong items make funny puffs with no penalty
+- Deliveries light lanterns on the tree
+- Full run takes a few minutes
 
-v0.4 — the room is now a toy first, tiny-step tool second.
-
-- Wisps drift through the room with real physics (cannon.js)
-- The room now tells you what it wants first: lamp, plant, or window
-- Tap a wisp once and it will go to the current object automatically
-- Or drag a wisp into the lamp → the lamp warms
-- Or drag a wisp into the plant → the plant stretches and a seed appears
-- Or drag a wisp into the window → the rain softens and the room clears
-- After the room reacts, the companion may offer an optional *tiny step*
-
-Next: stronger object personalities, real LLM-driven tiny steps (Anthropic API instead of the hardcoded pool), state engine that actually moves with player action, persistent state across "world sleeps while you act" sessions.
-
-## Stack
-
-- **Three.js r128** — 3D scene, low-poly flat-shaded, post-processing (bloom, grain, vignette)
-- **cannon.js 0.6.2** — lightweight 3D physics (wisp drift, soft attraction to companion, gentle gravity)
-- **Anthropic API** — light LLM assistance for task-classification → tiny-quest generation (planned)
-- **Supabase** — state persistence across the "world sleeps while you act" loop (planned)
-- **Capacitor.js** — mobile wrap (planned)
-- **Vercel** — deploy
-
-## History
-
-This project pivoted from **MEMORIA** — a dark fantasy narrative working-memory game — in May 2026 after playtests revealed that the runner format created ADHD anxiety. The multi-agent brainstorm at `momentum_game_v3_brainstorm.md` reframed the entire approach: from cognitive training to emotional regulation, from grief to curiosity, from a chapter game to a room.
-
-The final MEMORIA commit is tagged `memoria-final`. The runner build is preserved at `archive/memoria-runner.html`.
-
-## Design constraints (non-negotiable)
-
-- Reward = state improvement, not task completion
-- No treatment, symptom-reduction, medication-comparison, or FDA-like claims
-- No streaks, percentages, daily goals
-- No push notifications, ever
-- The room is always welcoming on return — no catch-up screens, no shame
-- The game wants you to leave it (exit velocity > engagement)
-- Companion never judges, pushes, prescribes, or moralizes
-- State vars (energy, overwhelm, focus, momentum, noise) are computed, never displayed
-- No "challenge mode" / "perfect day" / completable room
-
-## Project skills
-
-`.claude/skills/` holds project-local guardrails:
-- **`momentum-clinical-advisor`** — audits every feature against ADHD intervention research and ethics
-- **`momentum-narrative-designer`** — governs tone, voice, copy. Bans productivity language.
-- Third-party skills via `npx skills` — Three.js, Supabase, accessibility, etc.
-
-## Local setup
+Play locally:
 
 ```bash
-npm install                # nothing to install yet — single file prototype
-npx skills install         # restore third-party skills from skills-lock.json
+open index.html
 ```
 
-Open `index.html` directly, or:
+or:
 
 ```bash
 npx serve -p 8000
 ```
+
+## Hidden ADHD layer
+
+The support layer is disguised inside normal game actions:
+
+| Skill area | Game disguise |
+|---|---|
+| Working memory | Remembering customer orders |
+| Impulse control | Ignoring wrong shiny items |
+| Planning | Choosing a route through stalls |
+| Time awareness | Future market-shift structure |
+| Emotional regulation | Funny, low-shame reactions |
+
+No in-game copy says ADHD, working memory, treatment, attention training, or cognitive skill.
+
+## What it explicitly is not
+
+- A therapy app
+- A treatment
+- A medication alternative
+- An EndeavorRx competitor
+- A brain-training app
+- A productivity app
+
+MOMENTUM / Night Market Memory does not claim to treat ADHD, reduce symptoms, or improve attention. It is a non-clinical game prototype that uses ADHD-friendly interaction principles.
+
+## Design constraints
+
+- Game first, support layer hidden
+- No shame
+- No harsh fail state
+- No medical claims
+- Short loops
+- Immediate feedback
+- Visible fiction-based progress
+- Mistakes should be funny, not punishing
+
+## Stack
+
+- Three.js r128
+- Single-file HTML prototype
+- Low-poly 3D
+- Web Audio API synth sounds
+- Future: Supabase for progress, Anthropic API for customer/story variation, Vercel deploy
+
+## History
+
+This repo started as **MEMORIA**, a dark fantasy working-memory runner, then pivoted to **MOMENTUM**, a calm room prototype. Playtesting showed both were missing the core requirement: it must be a real game.
+
+The current direction is **Night Market Memory**, based on the fast-follower research in `docs/fast-follower-game-research.md`.
+
+Archived builds:
+
+- `archive/memoria-runner.html`
+- Git tag: `memoria-final`
+
+## Project skills
+
+`.claude/skills/` holds project-local guardrails:
+
+- `momentum-clinical-advisor` — evidence boundary and ADHD-safe design audit
+- `momentum-narrative-designer` — tone, voice, worldbuilding
 
 ## License
 
