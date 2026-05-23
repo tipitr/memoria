@@ -31,6 +31,9 @@ Vertical slice:
 - Basket UI
 - Wrong items make funny puffs with no penalty
 - Deliveries light lanterns on the tree
+- Orders briefly show, then fade into memory mode
+- Returning to the customer repeats the order with no shame
+- Difficulty adapts between one-, two-, and three-item orders
 - Full run takes a few minutes
 
 Play locally:
@@ -52,7 +55,7 @@ The support layer is disguised inside normal game actions:
 | Skill area | Game disguise |
 |---|---|
 | Working memory | Remembering customer orders |
-| Impulse control | Ignoring wrong shiny items |
+| Impulse control | Ignoring wrong shiny items after the prompt fades |
 | Planning | Choosing a route through stalls |
 | Time awareness | Future market-shift structure |
 | Emotional regulation | Funny, low-shame reactions |

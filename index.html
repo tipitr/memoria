@@ -151,6 +151,22 @@
   }
   #mission strong { color: #f8c56d; }
 
+  #memory-banner {
+    position: absolute; left: 50%; top: 142px; transform: translateX(-50%);
+    padding: 9px 13px;
+    border-radius: 999px;
+    background: rgba(18, 13, 26, 0.72);
+    border: 1px solid rgba(248,197,109,0.25);
+    color: rgba(244,232,203,0.82);
+    font-size: 13px;
+    font-weight: 800;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.22);
+    opacity: 0;
+    transition: opacity 350ms ease, transform 350ms ease;
+    pointer-events: none;
+  }
+  #memory-banner.show { opacity: 1; transform: translateX(-50%) translateY(-4px); }
+
   #start {
     position: fixed; inset: 0; z-index: 10;
     display: flex; flex-direction: column; justify-content: center; align-items: center;
@@ -204,6 +220,7 @@
     <div id="lanterns"></div>
   </div>
   <div id="toast"></div>
+  <div id="memory-banner"></div>
   <div id="mission"><strong>Wake 5 lanterns.</strong> Each order brings one stall back before sunrise.</div>
   <div id="hint">tap anywhere to move · collect the order · return to the customer</div>
   <div id="basket"><span id="basket-label">basket</span><div class="icons" id="basket-icons"></div></div>
@@ -232,12 +249,36 @@ const ORDERS = [
   { customer: 'The Cat With A Hat', line: 'Tea, bun, candy. Any order is fine.', items: ['moonTea', 'blueBun', 'foxCandy'] },
   { customer: 'Sleepy Moon Clerk', line: 'Last bundle before sunrise.', items: ['cloudRice', 'mintLantern', 'moonTea', 'starPlum'] },
 ];
+const ORDER_POOLS = {
+  1: [
+    { customer: 'Momo, umbrella ghost', line: 'Momo wants one thing. Find moon tea.', items: ['moonTea'] },
+    { customer: 'Nim, tiny drummer', line: 'Nim wants one snack. Find blue bun.', items: ['blueBun'] },
+    { customer: 'Oru, sleepy moth', line: 'Oru wants one glow. Find mint lamp.', items: ['mintLantern'] },
+  ],
+  2: [
+    { customer: 'Pip, alley sprite', line: 'Pip wants two things. Star plum and cloud rice.', items: ['starPlum', 'cloudRice'] },
+    { customer: 'Momo, umbrella ghost', line: 'Tea and bun for the rain.', items: ['moonTea', 'blueBun'] },
+    { customer: 'Auntie Lantern', line: 'A bright pair: mint lamp and fox candy.', items: ['mintLantern', 'foxCandy'] },
+  ],
+  3: [
+    { customer: 'Auntie Lantern', line: 'Three bright snacks: mint lamp, fox candy, star plum.', items: ['mintLantern', 'foxCandy', 'starPlum'] },
+    { customer: 'The Cat With A Hat', line: 'Tea, bun, candy. Any order is fine.', items: ['moonTea', 'blueBun', 'foxCandy'] },
+    { customer: 'Sleepy Moon Clerk', line: 'Rice, lamp, and moon tea before sunrise.', items: ['cloudRice', 'mintLantern', 'moonTea'] },
+  ],
+};
 
 let started = false;
 let currentOrderIndex = 0;
-let currentOrder = ORDERS[0];
+let currentOrder = null;
 let basket = [];
 let delivered = 0;
+let skillLevel = 1;
+let successStreak = 0;
+let wrongThisOrder = 0;
+let repeatsThisOrder = 0;
+let orderVisible = true;
+let orderHideTimer = null;
+let orderStartedAt = 0;
 let targetPoint = null;
 let keys = {};
 let lastToast = null;
@@ -615,22 +656,37 @@ function iconEl(id, done=false) {
 }
 
 function renderOrder() {
-  currentOrder = ORDERS[currentOrderIndex];
+  currentOrder = currentOrder || ORDERS[currentOrderIndex];
   document.getElementById('customer-name').textContent = currentOrder.customer;
-  document.getElementById('customer-line').textContent = currentOrder.line;
+  document.getElementById('customer-line').textContent = orderVisible ? currentOrder.line : 'remember the order. need a repeat? return to the customer.';
   const icons = document.getElementById('order-icons');
   icons.innerHTML = '';
   const used = {};
-  currentOrder.items.forEach((id) => {
+  currentOrder.items.forEach((id, i) => {
     used[id] = used[id] || 0;
     const collected = basket.filter(x => x === id).length;
     const done = collected > used[id];
     if (done) used[id]++;
-    icons.appendChild(iconEl(id, done));
+    icons.appendChild(orderVisible || done ? iconEl(id, done) : hiddenIconEl(i));
   });
   renderBasket();
   renderLanterns();
   updateHint();
+}
+
+function hiddenIconEl(i) {
+  const d = document.createElement('div');
+  d.className = 'icon';
+  const mark = document.createElement('span');
+  mark.className = 'mark';
+  mark.textContent = '?';
+  const name = document.createElement('span');
+  name.className = 'name';
+  name.textContent = 'hold';
+  d.appendChild(mark);
+  d.appendChild(name);
+  d.title = 'remembered item ' + (i + 1);
+  return d;
 }
 
 function renderBasket() {
@@ -654,8 +710,20 @@ function updateHint() {
     hint.textContent = 'order ready · go back to the customer at the top';
     return;
   }
+  if (!orderVisible) {
+    hint.textContent = 'remember the order · walk back to customer if you want to hear it again';
+    return;
+  }
   const next = missingItemName();
   hint.textContent = 'find: ' + next + ' · look for the big GET sign in the market';
+}
+
+function memoryBanner(text, dur=1600) {
+  const el = document.getElementById('memory-banner');
+  el.textContent = text;
+  el.classList.add('show');
+  clearTimeout(memoryBanner.timer);
+  memoryBanner.timer = setTimeout(() => el.classList.remove('show'), dur);
 }
 
 function toast(text, dur=1200) {
@@ -703,6 +771,8 @@ function collectItem(itemObj) {
     toast(ITEMS[itemObj.id].name);
     renderOrder();
   } else {
+    wrongThisOrder++;
+    if (wrongThisOrder >= 2) adjustDifficulty(false);
     itemObj.cooldown = 0.55;
     wrongPickup(itemObj);
   }
@@ -737,11 +807,67 @@ function isItemStillNeeded(id) {
   return (counts[id] || 0) > 0;
 }
 
+function startOrder(order=null) {
+  currentOrder = order || nextAdaptiveOrder();
+  basket = [];
+  wrongThisOrder = 0;
+  repeatsThisOrder = 0;
+  orderVisible = true;
+  orderStartedAt = performance.now();
+  clearTimeout(orderHideTimer);
+  renderOrder();
+  const showMs = currentOrder.items.length === 1 ? 3600 : currentOrder.items.length === 2 ? 4300 : 5200;
+  memoryBanner('look now. it fades soon.', 1300);
+  orderHideTimer = setTimeout(() => {
+    if (!started || currentOrderIndex >= ORDERS.length || basketMatchesOrder()) return;
+    orderVisible = false;
+    renderOrder();
+    memoryBanner('now hold it in your head.', 1700);
+  }, showMs);
+}
+
+function nextAdaptiveOrder() {
+  const level = Math.max(1, Math.min(3, skillLevel));
+  const pool = ORDER_POOLS[level];
+  return {...pool[currentOrderIndex % pool.length]};
+}
+
+function revealOrderAgain() {
+  if (orderVisible || currentOrderIndex >= ORDERS.length || basketMatchesOrder()) return;
+  repeatsThisOrder++;
+  orderVisible = true;
+  renderOrder();
+  memoryBanner('repeated. no problem.', 1400);
+  clearTimeout(orderHideTimer);
+  orderHideTimer = setTimeout(() => {
+    if (!started || currentOrderIndex >= ORDERS.length || basketMatchesOrder()) return;
+    orderVisible = false;
+    renderOrder();
+    memoryBanner('try from memory.', 1400);
+  }, 2800 + currentOrder.items.length * 600);
+}
+
+function adjustDifficulty(success=true) {
+  if (!success) {
+    successStreak = 0;
+    skillLevel = Math.max(1, skillLevel - 1);
+    return;
+  }
+  if (wrongThisOrder === 0 && repeatsThisOrder === 0) successStreak++;
+  else successStreak = 0;
+  if (successStreak >= 2) {
+    skillLevel = Math.min(3, skillLevel + 1);
+    successStreak = 0;
+  }
+}
+
 function tryDeliver() {
   const dist = player.position.distanceTo(customerGroup.position);
   if (dist > 0.8) return;
   if (basketMatchesOrder()) {
     completeOrder();
+  } else if (!orderVisible && basket.length === 0 && dist < 0.72) {
+    revealOrderAgain();
   } else if (basket.length > 0 || dist < 0.58) {
     toast('still need ' + missingItemName(), 1100);
   }
@@ -749,6 +875,8 @@ function tryDeliver() {
 
 function completeOrder() {
   delivered++;
+  clearTimeout(orderHideTimer);
+  adjustDifficulty(true);
   const lantern = branches[delivered - 1];
   if (lantern) {
     lantern.material.color.setHex(0xf8c56d);
@@ -772,7 +900,7 @@ function completeOrder() {
   } else {
     const colors = [0xb392e0, 0x8aa0ff, 0xe69cb8, 0x7edb9a, 0xe6b86f];
     makeCustomer(colors[currentOrderIndex % colors.length]);
-    renderOrder();
+    startOrder();
     updateHint();
   }
 }
@@ -803,6 +931,7 @@ function updateMission() {
 }
 
 function endShift() {
+  clearTimeout(orderHideTimer);
   document.getElementById('customer-name').textContent = 'shift complete';
   document.getElementById('customer-line').textContent = 'five lanterns awake. tap to run the market again.';
   document.getElementById('order-icons').innerHTML = '';
@@ -812,7 +941,10 @@ function endShift() {
 }
 
 function restartShift() {
+  clearTimeout(orderHideTimer);
   delivered = 0; currentOrderIndex = 0; basket = [];
+  skillLevel = 1; successStreak = 0; wrongThisOrder = 0; repeatsThisOrder = 0;
+  currentOrder = null; orderVisible = true;
   branches.forEach(l => {
     l.material.color.setHex(0x3f3248);
     l.material.emissive.setHex(0x000000);
@@ -829,7 +961,7 @@ function restartShift() {
   });
   makeCustomer();
   spawnItems();
-  renderOrder();
+  startOrder({...ORDER_POOLS[1][0]});
   toast('market opens again', 1000);
   updateHint();
   updateMission();
@@ -876,7 +1008,7 @@ window.addEventListener('pointerdown', (ev) => {
   if (!started) {
     started = true;
     document.getElementById('start').classList.add('fade');
-    renderOrder();
+    startOrder({...ORDER_POOLS[1][0]});
     toast('find moon tea', 1100);
     updateHint();
     updateMission();
@@ -926,7 +1058,7 @@ function animate(now=performance.now()) {
     obj.cooldown = Math.max(0, obj.cooldown - dt);
     obj.group.rotation.y += dt * 0.8;
     obj.group.position.y = Math.sin(t * 2 + obj.group.position.x) * 0.045;
-    const needed = started && currentOrderIndex < ORDERS.length && isItemStillNeeded(obj.id);
+    const needed = started && currentOrderIndex < ORDERS.length && orderVisible && isItemStillNeeded(obj.id);
     const readyToDeliver = started && currentOrderIndex < ORDERS.length && basketMatchesOrder();
     obj.group.children.forEach(child => {
       if (child.userData && child.userData.kind === 'needBeacon') child.visible = needed && !readyToDeliver;
