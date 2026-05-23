@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover" />
-<title>Night Market Memory</title>
+<title>Night Market Saboteur</title>
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
@@ -125,8 +125,8 @@
     transition: background 450ms ease, box-shadow 450ms ease, transform 450ms ease;
   }
   .lantern-dot.lit {
-    background: #f8c56d;
-    box-shadow: 0 0 16px #f8c56d;
+    background: #ff5d73;
+    box-shadow: 0 0 16px #ff5d73;
     transform: rotate(45deg) scale(1.16);
   }
 
@@ -272,8 +272,8 @@
 </head>
 <body>
 <div id="start">
-  <h1>Night Market<br/>Memory</h1>
-  <p>Run strange little orders before sunrise. Pick the right charms, ignore the shiny wrong ones, and wake the lantern tree.</p>
+  <h1>Night Market<br/>Saboteur</h1>
+  <p>You are the little chaos spirit tonight. Steal the right charms, cast sabotage sigils, and blackout the district before dawn patrol arrives.</p>
   <div class="play">tap to open</div>
 </div>
 
@@ -292,16 +292,15 @@
   <div id="lanterns"></div>
   <div id="toast"></div>
   <div id="memory-banner"></div>
-  <div id="mission"><strong>Wake 5 lanterns.</strong> Each order brings one stall back before sunrise.</div>
-  <div id="hint">tap anywhere to move · collect the order · return to the customer</div>
-  <div id="basket"><span id="basket-label">basket</span><div class="icons" id="basket-icons"></div></div>
+  <div id="mission"><strong>Black out 5 beacons.</strong> Cast sabotage sigils before dawn.</div>
+  <div id="hint">tap anywhere to move · steal the plan items · return to the broker sigil</div>
+  <div id="basket"><span id="basket-label">loot</span><div class="icons" id="basket-icons"></div></div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
 <script>
-/* Night Market Memory
-   A real casual-game wrapper for ADHD-friendly cognitive practice.
-   No clinical language in-game. The player is running a magical market. */
+/* Night Market Saboteur
+   Mischief-first action loop with memory/distraction pressure hidden underneath. */
 
 const ITEMS = {
   moonTea:   { name: 'moon tea',   short: 'tea',     icon: '☾', color: 0x86d7ff, shape: 'cup',   stall: 'tea' },
@@ -314,32 +313,32 @@ const ITEMS = {
 const ITEM_IDS = Object.keys(ITEMS);
 
 const ORDERS = [
-  { customer: 'Momo, umbrella ghost', line: 'Momo wants one thing. Find moon tea.', items: ['moonTea'] },
-  { customer: 'Pip, alley sprite', line: 'Pip wants two things. Find star plum and cloud rice.', items: ['starPlum', 'cloudRice'] },
-  { customer: 'Auntie Lantern', line: 'Auntie wants three bright snacks.', items: ['mintLantern', 'foxCandy', 'starPlum'] },
-  { customer: 'The Cat With A Hat', line: 'Tea, bun, candy. Any order is fine.', items: ['moonTea', 'blueBun', 'foxCandy'] },
-  { customer: 'Sleepy Moon Clerk', line: 'Last bundle before sunrise.', items: ['cloudRice', 'mintLantern', 'moonTea', 'starPlum'] },
+  { customer: 'Hex Broker Momo', line: 'Lift moon tea for the first sabotage sigil.', items: ['moonTea'] },
+  { customer: 'Broker Pip', line: 'Star plum and cloud rice for a split circuit curse.', items: ['starPlum', 'cloudRice'] },
+  { customer: 'Broker Auntie', line: 'Mint lamp, fox candy, star plum. Drop the plaza grid.', items: ['mintLantern', 'foxCandy', 'starPlum'] },
+  { customer: 'The Cat Broker', line: 'Tea, bun, candy. Bring the bakery into shadow.', items: ['moonTea', 'blueBun', 'foxCandy'] },
+  { customer: 'Moon Clerk (Corrupt)', line: 'Last fuse before patrol. Stay sharp.', items: ['cloudRice', 'mintLantern', 'moonTea', 'starPlum'] },
 ];
 const ORDER_POOLS = {
   1: [
-    { customer: 'Momo, umbrella ghost', line: 'Momo wants one thing. Find moon tea.', items: ['moonTea'], react: 'momo stops dripping for a second.' },
-    { customer: 'Nim, tiny drummer', line: 'Nim wants one snack. Find blue bun.', items: ['blueBun'], react: 'nim taps a tiny victory beat.' },
-    { customer: 'Oru, sleepy moth', line: 'Oru wants one glow. Find mint lamp.', items: ['mintLantern'], react: 'oru blinks awake. mostly.' },
+    { customer: 'Hex Broker Momo', line: 'Phase one: lift moon tea for the static sigil.', items: ['moonTea'], react: 'one alley goes dark. momo snorts.' },
+    { customer: 'Hex Broker Nim', line: 'Quick snatch: blue bun for the noise rune.', items: ['blueBun'], react: 'nim drums on a dead streetlight.' },
+    { customer: 'Hex Broker Oru', line: 'Bring mint lamp. We crack a corner beacon.', items: ['mintLantern'], react: 'oru grins in the dark.' },
   ],
   2: [
-    { customer: 'Pip, alley sprite', line: 'Pip wants two things. Star plum and cloud rice.', items: ['starPlum', 'cloudRice'], react: 'pip hides a grin in their scarf.' },
-    { customer: 'Momo, umbrella ghost', line: 'Tea and bun for the rain.', items: ['moonTea', 'blueBun'], react: 'momo says the rain tastes nicer.' },
-    { customer: 'Auntie Lantern', line: 'A bright pair: mint lamp and fox candy.', items: ['mintLantern', 'foxCandy'], react: 'auntie lantern warms both hands.' },
+    { customer: 'Broker Pip', line: 'Star plum plus cloud rice. Two-part blackout sigil.', items: ['starPlum', 'cloudRice'], react: 'pip marks another stall in chalk.' },
+    { customer: 'Broker Momo', line: 'Moon tea and blue bun. Rainline sabotage.', items: ['moonTea', 'blueBun'], react: 'momo hums while the sign flickers out.' },
+    { customer: 'Broker Auntie', line: 'Mint lamp and fox candy. Hit the east circuit.', items: ['mintLantern', 'foxCandy'], react: 'auntie laughs when the alley dims.' },
   ],
   3: [
-    { customer: 'Auntie Lantern', line: 'Three bright snacks: mint lamp, fox candy, star plum.', items: ['mintLantern', 'foxCandy', 'starPlum'], react: 'auntie names one lantern after you.' },
-    { customer: 'The Cat With A Hat', line: 'Tea, bun, candy. Any order is fine.', items: ['moonTea', 'blueBun', 'foxCandy'], react: 'the cat pretends this was its plan.' },
-    { customer: 'Sleepy Moon Clerk', line: 'Rice, lamp, and moon tea before sunrise.', items: ['cloudRice', 'mintLantern', 'moonTea'], react: 'the moon clerk stamps the air.' },
+    { customer: 'Broker Auntie', line: 'Mint lamp, fox candy, star plum. Trip the center ring.', items: ['mintLantern', 'foxCandy', 'starPlum'], react: 'the plaza coughs and goes dim.' },
+    { customer: 'The Cat Broker', line: 'Tea, bun, candy. We ghost the bakery lights.', items: ['moonTea', 'blueBun', 'foxCandy'], react: 'the cat bows like this is theater.' },
+    { customer: 'Moon Clerk (Corrupt)', line: 'Rice, lamp, tea. Kill the harbor line.', items: ['cloudRice', 'mintLantern', 'moonTea'], react: 'the clerk stamps VOID on the night.' },
   ],
   4: [
-    { customer: 'The Cat With A Hat', line: 'Four quick things: tea, bun, candy, plum.', items: ['moonTea', 'blueBun', 'foxCandy', 'starPlum'], react: 'the cat gives one very official nod.' },
-    { customer: 'Sleepy Moon Clerk', line: 'Rice, lamp, tea, plum. Sunrise is nosy.', items: ['cloudRice', 'mintLantern', 'moonTea', 'starPlum'], react: 'the moon clerk files you under fast.' },
-    { customer: 'Pip, alley sprite', line: 'Bun, rice, candy, lamp. No shiny detours.', items: ['blueBun', 'cloudRice', 'foxCandy', 'mintLantern'], react: 'pip almost says thank you.' },
+    { customer: 'The Cat Broker', line: 'Full stack: tea, bun, candy, plum. No slips.', items: ['moonTea', 'blueBun', 'foxCandy', 'starPlum'], react: 'a whole block shuts off at once.' },
+    { customer: 'Moon Clerk (Corrupt)', line: 'Rice, lamp, tea, plum. Dawn is near.', items: ['cloudRice', 'mintLantern', 'moonTea', 'starPlum'], react: 'the clerk snaps the final fuse.' },
+    { customer: 'Broker Pip', line: 'Bun, rice, candy, lamp. Leave no beacon alive.', items: ['blueBun', 'cloudRice', 'foxCandy', 'mintLantern'], react: 'pip salutes the blackout.' },
   ],
 };
 
@@ -532,20 +531,24 @@ function makeStall(data) {
 }
 Object.values(stalls).forEach(makeStall);
 
-// Decorative bulbs around the plaza start sleepy and wake up as orders complete.
+// Decorative bulbs around the plaza start fully lit, then get knocked out by sabotage.
 for (let i = 0; i < 14; i++) {
   const a = (i / 14) * Math.PI * 2;
   const r = 6.65 + (i % 2) * 0.22;
   const bulb = new THREE.Mesh(
     new THREE.IcosahedronGeometry(0.09, 0),
-    mat(0x3f3248, { emissive: 0x000000, emissiveIntensity: 0 })
+    mat(0xf8c56d, { emissive: 0xf8c56d, emissiveIntensity: 1.1 })
   );
   bulb.position.set(Math.cos(a) * r, 0.32 + (i % 3) * 0.06, Math.sin(a) * r);
+  const l = new THREE.PointLight(0xf8c56d, 0.18, 2.6, 2);
+  l.position.copy(bulb.position);
+  bulb.userData.light = l;
+  scene.add(l);
   scene.add(bulb);
   marketLights.push(bulb);
 }
 
-// Lantern tree = visible progression, fiction-first.
+// Beacon tree = visible sabotage progression.
 lanternTree.position.set(-5.25, 0, 3.7);
 const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.08, 0.16, 2.0, 5), mat(0x3a221a));
 trunk.position.y = 1.0; trunk.castShadow = true; lanternTree.add(trunk);
@@ -557,10 +560,13 @@ for (let i = 0; i < 5; i++) {
   lanternTree.add(branch);
   const lantern = new THREE.Mesh(
     new THREE.IcosahedronGeometry(0.16, 0),
-    mat(0x3f3248, { emissive: 0x000000, emissiveIntensity: 0 })
+    mat(0xf8c56d, { emissive: 0xf8c56d, emissiveIntensity: 1.7 })
   );
   lantern.position.set(branch.position.x + (i % 2 ? -0.42 : 0.42), branch.position.y + 0.1, branch.position.z);
-  lantern.userData.lit = false;
+  lantern.userData.lit = true;
+  lantern.userData.light = new THREE.PointLight(0xf8c56d, 0.6, 3, 2);
+  lantern.userData.light.position.copy(lantern.position);
+  lanternTree.add(lantern.userData.light);
   lanternTree.add(lantern);
   branches.push(lantern);
 }
@@ -587,8 +593,8 @@ function makeCustomer(color=0xb392e0) {
   const bob = new THREE.PointLight(color, 0.5, 3.5, 2);
   bob.position.y = 1.3; customerGroup.add(bob);
   const label = makeCanvasSprite({
-    text: 'ORDER',
-    sub: 'customer',
+    text: 'PLAN',
+    sub: 'broker',
     color,
     bg: 'rgba(30, 16, 34, 0.92)',
     w: 210,
@@ -740,8 +746,8 @@ function iconEl(id, done=false) {
 function renderOrder() {
   currentOrder = currentOrder || ORDERS[currentOrderIndex];
   document.getElementById('order-card').classList.toggle('memory-mode', !orderVisible);
-  document.getElementById('customer-name').textContent = currentOrder.customer;
-  document.getElementById('customer-line').textContent = orderVisible ? currentOrder.line : 'remember the order. need a repeat? return to the customer.';
+  document.getElementById('customer-name').textContent = 'chaos plan · ' + currentOrder.customer;
+  document.getElementById('customer-line').textContent = orderVisible ? currentOrder.line : 'memory only. return to the broker sigil for a repeat.';
   const icons = document.getElementById('order-icons');
   icons.innerHTML = '';
   const used = {};
@@ -795,7 +801,7 @@ function renderPressure() {
 function updateHint() {
   const hint = document.getElementById('hint');
   if (!started) {
-    hint.textContent = 'tap to open the night market';
+    hint.textContent = 'tap to begin the sabotage run';
     return;
   }
   if (shiftOver) {
@@ -807,15 +813,15 @@ function updateHint() {
     return;
   }
   if (basketMatchesOrder()) {
-    hint.textContent = 'order ready · go back to the customer at the top';
+    hint.textContent = 'sigil ready · return to the broker at the top';
     return;
   }
   if (!orderVisible) {
-    hint.textContent = 'remember the order · walk back to customer if you want to hear it again';
+    hint.textContent = 'memory phase · return to broker if you need the plan repeated';
     return;
   }
   const next = missingItemName();
-  hint.textContent = 'find: ' + next + ' · look for the big GET sign in the market';
+  hint.textContent = 'steal: ' + next + ' · follow the big GET markers';
 }
 
 function memoryBanner(text, dur=1600) {
@@ -923,7 +929,7 @@ function wrongPickup(itemObj) {
   dawnLeft = Math.max(0, dawnLeft - 5);
   renderPressure();
   setTimeout(() => itemObj.mesh.scale.setScalar(1), 140);
-  const lines = ['not that sparkle.', 'too shiny.', 'wrong stall. funny though.', 'it hops away offended.'];
+  const lines = ['wrong reagent.', 'that breaks the sigil mix.', 'nice chaos, bad recipe.', 'the charm rejects you.'];
   toast(lines[Math.floor(Math.random() * lines.length)], 900);
   beep(180, 'square', 0.025, 0.18);
 }
@@ -940,7 +946,7 @@ function basketMatchesOrder() {
 function missingItemName() {
   const counts = neededCounts();
   const next = currentOrder.items.find(id => (counts[id] || 0) > 0);
-  return next ? ITEMS[next].name : 'the order';
+  return next ? ITEMS[next].name : 'the plan';
 }
 
 function isItemStillNeeded(id) {
@@ -959,13 +965,13 @@ function startOrder(order=null) {
   clearTimeout(orderHideTimer);
   renderOrder();
   const showMs = orderPeekMs();
-  memoryBanner(currentOrder.items.length === 1 ? 'tutorial: watch the order.' : 'memorize fast. dawn is moving.', 1200);
+  memoryBanner(currentOrder.items.length === 1 ? 'tutorial: read the sabotage plan.' : 'memorize fast. patrol is moving.', 1200);
   orderHideTimer = setTimeout(() => {
     if (!started || currentOrderIndex >= ORDERS.length || basketMatchesOrder()) return;
     releaseMemoryMoths();
     orderVisible = false;
     renderOrder();
-    memoryBanner('now hold it in your head.', 1700);
+    memoryBanner('now hold the plan in your head.', 1700);
   }, showMs);
 }
 
@@ -1012,13 +1018,13 @@ function revealOrderAgain() {
   dawnLeft = Math.max(0, dawnLeft - 4.5);
   orderVisible = true;
   renderOrder();
-  memoryBanner('repeat costs dawnlight.', 1300);
+  memoryBanner('repeat burns patrol time.', 1300);
   clearTimeout(orderHideTimer);
   orderHideTimer = setTimeout(() => {
     if (!started || currentOrderIndex >= ORDERS.length || basketMatchesOrder()) return;
     orderVisible = false;
     renderOrder();
-    memoryBanner('try from memory.', 1400);
+    memoryBanner('cast from memory.', 1400);
   }, Math.max(1500, orderPeekMs() * 0.75));
 }
 
@@ -1054,7 +1060,7 @@ function tryDeliver() {
   } else if (!orderVisible && basket.length === 0 && dist < 0.72) {
     revealOrderAgain();
   } else if (basket.length > 0 || dist < 0.58) {
-    toast('still need ' + missingItemName(), 1100);
+    toast('sigil still needs ' + missingItemName(), 1100);
   }
 }
 
@@ -1063,20 +1069,13 @@ function completeOrder() {
   clearTimeout(orderHideTimer);
   adjustDifficulty(true);
   const lantern = branches[delivered - 1];
-  if (lantern) {
-    lantern.material.color.setHex(0xf8c56d);
-    lantern.material.emissive.setHex(0xf8c56d);
-    lantern.material.emissiveIntensity = 1.7;
-    const light = new THREE.PointLight(0xf8c56d, 0.6, 3, 2);
-    light.position.copy(lantern.position);
-    lanternTree.add(light);
-  }
-  wakeMarketLights();
-  createPuff(customerGroup.position, 0xf8c56d, 24);
+  if (lantern) setBeaconState(lantern, false);
+  disruptMarketLights();
+  createPuff(customerGroup.position, 0xff5d73, 24);
   beep(660, 'triangle', 0.06, 0.18);
   setTimeout(() => beep(880, 'triangle', 0.05, 0.26), 120);
-  const lines = ['served warm.', 'the stall smiles.', 'lantern awake.', 'market remembers.'];
-  toast(delivered >= 5 ? 'the lantern tree wakes.' : (currentOrder.react || lines[(delivered - 1) % lines.length]), 1800);
+  const lines = ['sigil cracked.', 'stall lights glitch.', 'beacon down.', 'the district flickers.'];
+  toast(delivered >= 5 ? 'district blackout complete.' : (currentOrder.react || lines[(delivered - 1) % lines.length]), 1800);
   focusSpark += 0.25;
   updateMission();
   basket = [];
@@ -1091,10 +1090,31 @@ function completeOrder() {
   }
 }
 
-function wakeMarketLights() {
-  const count = Math.min(marketLights.length, delivered * 3);
-  for (let i = 0; i < count; i++) {
-    const bulb = marketLights[i];
+function setBeaconState(lantern, on) {
+  lantern.userData.lit = on;
+  if (on) {
+    lantern.material.color.setHex(0xf8c56d);
+    lantern.material.emissive.setHex(0xf8c56d);
+    lantern.material.emissiveIntensity = 1.7;
+    if (!lantern.userData.light) {
+      lantern.userData.light = new THREE.PointLight(0xf8c56d, 0.6, 3, 2);
+      lantern.userData.light.position.copy(lantern.position);
+      lanternTree.add(lantern.userData.light);
+    }
+  } else {
+    lantern.material.color.setHex(0x2d2432);
+    lantern.material.emissive.setHex(0x000000);
+    lantern.material.emissiveIntensity = 0;
+    if (lantern.userData.light) {
+      lanternTree.remove(lantern.userData.light);
+      lantern.userData.light = null;
+    }
+  }
+}
+
+function setBulbState(bulb, on) {
+  bulb.userData.on = on;
+  if (on) {
     bulb.material.color.setHex(0xf8c56d);
     bulb.material.emissive.setHex(0xf8c56d);
     bulb.material.emissiveIntensity = 1.1;
@@ -1104,17 +1124,32 @@ function wakeMarketLights() {
       bulb.userData.light = l;
       scene.add(l);
     }
+  } else {
+    bulb.material.color.setHex(0x3f3248);
+    bulb.material.emissive.setHex(0x000000);
+    bulb.material.emissiveIntensity = 0;
+    if (bulb.userData.light) {
+      scene.remove(bulb.userData.light);
+      bulb.userData.light = null;
+    }
+  }
+}
+
+function disruptMarketLights() {
+  const offCount = Math.min(marketLights.length, delivered * 3);
+  for (let i = 0; i < marketLights.length; i++) {
+    setBulbState(marketLights[i], i >= offCount);
   }
 }
 
 function updateMission() {
   const el = document.getElementById('mission');
   if (shiftOver && delivered < 5) {
-    el.innerHTML = '<strong>Dawn caught the route.</strong> ' + delivered + '/5 awake · tap to try cleaner.';
+    el.innerHTML = '<strong>Patrol caught your sabotage.</strong> ' + delivered + '/5 beacons down · tap to rerun.';
   } else if (currentOrderIndex >= ORDERS.length) {
-    el.innerHTML = '<strong>Market awake.</strong> The lantern tree remembers tonight.';
+    el.innerHTML = '<strong>District blacked out.</strong> The city is yours for one more night.';
   } else {
-    el.innerHTML = '<strong>Wake 5 lanterns.</strong> ' + delivered + '/5 awake · finish orders to bring the market back.';
+    el.innerHTML = '<strong>Black out 5 beacons.</strong> ' + delivered + '/5 down · cast sabotage sigils before dawn.';
   }
 }
 
@@ -1122,12 +1157,12 @@ function endShift(dawnCaught=false) {
   clearTimeout(orderHideTimer);
   shiftOver = true;
   document.getElementById('order-card').classList.remove('memory-mode');
-  document.getElementById('customer-name').textContent = dawnCaught ? 'dawn caught you' : 'shift complete';
+  document.getElementById('customer-name').textContent = dawnCaught ? 'patrol caught you' : 'blackout complete';
   document.getElementById('customer-line').textContent = dawnCaught
-    ? delivered + '/5 lanterns awake. tap to try a faster route.'
-    : 'five lanterns awake. tap to run the market again.';
+    ? delivered + '/5 beacons down. tap to run a cleaner sabotage.'
+    : 'district fully dark. tap to start another chaos shift.';
   document.getElementById('order-icons').innerHTML = '';
-  toast(dawnCaught ? 'dawn broke over the market' : 'night market complete', 2400);
+  toast(dawnCaught ? 'dawn patrol shut you down' : 'city blackout complete', 2400);
   targetPoint = null;
   updateMission();
   updateHint();
@@ -1139,24 +1174,12 @@ function restartShift() {
   dawnLeft = DAWN_MAX; combo = 0; shiftOver = false;
   skillLevel = 1; successStreak = 0; wrongThisOrder = 0; repeatsThisOrder = 0;
   currentOrder = null; orderVisible = true;
-  branches.forEach(l => {
-    l.material.color.setHex(0x3f3248);
-    l.material.emissive.setHex(0x000000);
-    l.material.emissiveIntensity = 0;
-  });
-  marketLights.forEach(bulb => {
-    bulb.material.color.setHex(0x3f3248);
-    bulb.material.emissive.setHex(0x000000);
-    bulb.material.emissiveIntensity = 0;
-    if (bulb.userData.light) {
-      scene.remove(bulb.userData.light);
-      bulb.userData.light = null;
-    }
-  });
+  branches.forEach(l => setBeaconState(l, true));
+  marketLights.forEach(bulb => setBulbState(bulb, true));
   makeCustomer();
   spawnItems();
   startOrder({...ORDER_POOLS[1][0]});
-  toast('market opens again', 1000);
+  toast('chaos shift restarted', 1000);
   updateHint();
   updateMission();
 }
@@ -1203,7 +1226,7 @@ window.addEventListener('pointerdown', (ev) => {
     started = true;
     document.getElementById('start').classList.add('fade');
     startOrder({...ORDER_POOLS[1][0]});
-    toast('find moon tea', 1100);
+    toast('first sabotage: moon tea', 1100);
     updateHint();
     updateMission();
     return;
@@ -1304,8 +1327,8 @@ function animate(now=performance.now()) {
       const state = readyToDeliver ? 'deliver' : 'order';
       if (child.userData.state !== state) {
         child.userData.state = state;
-        if (readyToDeliver) setSpriteText(child, { text: 'DELIVER', sub: 'return here', color: 0xf8c56d, bg: 'rgba(30,16,34,0.94)', fontSize: 34 });
-        else setSpriteText(child, { text: 'ORDER', sub: 'customer', color: 0xb392e0, bg: 'rgba(30,16,34,0.92)', fontSize: 42 });
+        if (readyToDeliver) setSpriteText(child, { text: 'CAST', sub: 'sabotage', color: 0xff8e6b, bg: 'rgba(30,16,34,0.94)', fontSize: 38 });
+        else setSpriteText(child, { text: 'PLAN', sub: 'broker', color: 0xb392e0, bg: 'rgba(30,16,34,0.92)', fontSize: 42 });
       }
     }
   });
