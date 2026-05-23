@@ -136,6 +136,21 @@
     max-width: 88vw;
   }
 
+  #mission {
+    position: absolute; left: 14px; bottom: calc(max(16px, env(safe-area-inset-bottom)) + 134px);
+    max-width: min(430px, calc(100vw - 28px));
+    padding: 10px 13px;
+    border-radius: 16px;
+    background: rgba(18, 13, 26, 0.72);
+    border: 1px solid rgba(248,197,109,0.22);
+    color: rgba(244,232,203,0.82);
+    font-size: 13px;
+    line-height: 1.25;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.24);
+    transition: opacity 500ms ease, transform 500ms ease;
+  }
+  #mission strong { color: #f8c56d; }
+
   #start {
     position: fixed; inset: 0; z-index: 10;
     display: flex; flex-direction: column; justify-content: center; align-items: center;
@@ -189,6 +204,7 @@
     <div id="lanterns"></div>
   </div>
   <div id="toast"></div>
+  <div id="mission"><strong>Wake 5 lanterns.</strong> Each order brings one stall back before sunrise.</div>
   <div id="hint">tap anywhere to move · collect the order · return to the customer</div>
   <div id="basket"><span id="basket-label">basket</span><div class="icons" id="basket-icons"></div></div>
 </div>
@@ -280,6 +296,7 @@ const stalls = {
 const itemMeshes = [];
 const customerGroup = new THREE.Group();
 const lanternTree = new THREE.Group();
+const marketLights = [];
 const puffs = [];
 
 function mat(color, opts={}) {
@@ -391,6 +408,19 @@ function makeStall(data) {
   scene.add(g);
 }
 Object.values(stalls).forEach(makeStall);
+
+// Decorative bulbs around the plaza start sleepy and wake up as orders complete.
+for (let i = 0; i < 14; i++) {
+  const a = (i / 14) * Math.PI * 2;
+  const r = 6.65 + (i % 2) * 0.22;
+  const bulb = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(0.09, 0),
+    mat(0x3f3248, { emissive: 0x000000, emissiveIntensity: 0 })
+  );
+  bulb.position.set(Math.cos(a) * r, 0.32 + (i % 3) * 0.06, Math.sin(a) * r);
+  scene.add(bulb);
+  marketLights.push(bulb);
+}
 
 // Lantern tree = visible progression, fiction-first.
 lanternTree.position.set(-5.25, 0, 3.7);
@@ -728,11 +758,13 @@ function completeOrder() {
     light.position.copy(lantern.position);
     lanternTree.add(light);
   }
+  wakeMarketLights();
   createPuff(customerGroup.position, 0xf8c56d, 24);
   beep(660, 'triangle', 0.06, 0.18);
   setTimeout(() => beep(880, 'triangle', 0.05, 0.26), 120);
   const lines = ['served warm.', 'the stall smiles.', 'lantern awake.', 'market remembers.'];
   toast(delivered >= 5 ? 'the lantern tree wakes.' : lines[(delivered - 1) % lines.length], 1500);
+  updateMission();
   basket = [];
   currentOrderIndex++;
   if (currentOrderIndex >= ORDERS.length) {
@@ -742,6 +774,31 @@ function completeOrder() {
     makeCustomer(colors[currentOrderIndex % colors.length]);
     renderOrder();
     updateHint();
+  }
+}
+
+function wakeMarketLights() {
+  const count = Math.min(marketLights.length, delivered * 3);
+  for (let i = 0; i < count; i++) {
+    const bulb = marketLights[i];
+    bulb.material.color.setHex(0xf8c56d);
+    bulb.material.emissive.setHex(0xf8c56d);
+    bulb.material.emissiveIntensity = 1.1;
+    if (!bulb.userData.light) {
+      const l = new THREE.PointLight(0xf8c56d, 0.18, 2.6, 2);
+      l.position.copy(bulb.position);
+      bulb.userData.light = l;
+      scene.add(l);
+    }
+  }
+}
+
+function updateMission() {
+  const el = document.getElementById('mission');
+  if (currentOrderIndex >= ORDERS.length) {
+    el.innerHTML = '<strong>Market awake.</strong> The lantern tree remembers tonight.';
+  } else {
+    el.innerHTML = '<strong>Wake 5 lanterns.</strong> ' + delivered + '/5 awake · finish orders to bring the market back.';
   }
 }
 
@@ -761,11 +818,21 @@ function restartShift() {
     l.material.emissive.setHex(0x000000);
     l.material.emissiveIntensity = 0;
   });
+  marketLights.forEach(bulb => {
+    bulb.material.color.setHex(0x3f3248);
+    bulb.material.emissive.setHex(0x000000);
+    bulb.material.emissiveIntensity = 0;
+    if (bulb.userData.light) {
+      scene.remove(bulb.userData.light);
+      bulb.userData.light = null;
+    }
+  });
   makeCustomer();
   spawnItems();
   renderOrder();
   toast('market opens again', 1000);
   updateHint();
+  updateMission();
 }
 
 // ---------- Effects ----------
@@ -812,6 +879,7 @@ window.addEventListener('pointerdown', (ev) => {
     renderOrder();
     toast('find moon tea', 1100);
     updateHint();
+    updateMission();
     return;
   }
   if (currentOrderIndex >= ORDERS.length) {
@@ -894,6 +962,14 @@ function animate(now=performance.now()) {
   customerGroup.position.y = Math.sin(t * 2.2) * 0.06;
   customerGroup.rotation.y = Math.sin(t * 1.4) * 0.2;
   lanternTree.rotation.y = Math.sin(t * 0.35) * 0.05;
+  marketLights.forEach((bulb, i) => {
+    if (bulb.material.emissiveIntensity > 0) {
+      const b = 0.85 + Math.sin(t * 2.2 + i) * 0.15;
+      bulb.material.emissiveIntensity = 1.1 * b;
+      bulb.scale.setScalar(1 + Math.sin(t * 2.5 + i) * 0.08);
+      if (bulb.userData.light) bulb.userData.light.intensity = 0.18 * b;
+    }
+  });
 
   for (let i = puffs.length - 1; i >= 0; i--) {
     const p = puffs[i];
