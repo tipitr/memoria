@@ -105,6 +105,13 @@
     font-size: 10px; font-weight: 900; letter-spacing: 0.08em;
     text-transform: uppercase;
   }
+  #meta-row {
+    margin-top: 7px;
+    display: flex; justify-content: space-between; gap: 10px;
+    color: rgba(244,232,203,0.78);
+    font-size: 10px; font-weight: 900; letter-spacing: 0.06em;
+    text-transform: uppercase;
+  }
   #dawn-bar {
     height: 6px; margin-top: 7px; overflow: hidden;
     border-radius: 999px;
@@ -143,6 +150,35 @@
     font-size: 11px; color: rgba(56,33,50,0.68);
     letter-spacing: 0.16em; text-transform: uppercase; margin-right: 3px;
     font-weight: 900;
+  }
+  #action-pad {
+    position: absolute;
+    right: 12px;
+    bottom: calc(max(16px, env(safe-area-inset-bottom)) + 4px);
+    display: flex;
+    gap: 8px;
+    pointer-events: auto;
+  }
+  .action-btn {
+    min-width: 86px;
+    height: 44px;
+    border: 1px solid rgba(255,255,255,0.2);
+    border-radius: 12px;
+    background: rgba(18, 13, 26, 0.76);
+    color: #f4e8cb;
+    font-size: 11px;
+    font-weight: 900;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    backdrop-filter: blur(6px);
+    box-shadow: 0 8px 22px rgba(0,0,0,0.24);
+  }
+  .action-btn.ready {
+    border-color: rgba(248,197,109,0.52);
+    box-shadow: 0 0 0 1px rgba(248,197,109,0.22), 0 8px 22px rgba(0,0,0,0.24);
+  }
+  .action-btn:active {
+    transform: translateY(1px) scale(0.98);
   }
 
   #toast {
@@ -267,6 +303,15 @@
     #mission {
       display: none;
     }
+    #action-pad {
+      right: 8px;
+      gap: 6px;
+    }
+    .action-btn {
+      min-width: 76px;
+      height: 42px;
+      font-size: 10px;
+    }
   }
 </style>
 </head>
@@ -287,6 +332,7 @@
     <div id="pressure">
       <div id="pressure-row"><span id="challenge-label">heat 1</span><span id="combo-label">combo 0</span></div>
       <div id="dawn-bar"><div id="dawn-fill"></div></div>
+      <div id="meta-row"><span id="score-label">score 0</span><span id="skills-label">dash ✓ · cast ✓</span></div>
     </div>
   </div>
   <div id="lanterns"></div>
@@ -295,6 +341,10 @@
   <div id="mission"><strong>Black out 5 beacons.</strong> Cast sabotage sigils before dawn.</div>
   <div id="hint">tap anywhere to move · steal the plan items · return to the broker sigil</div>
   <div id="basket"><span id="basket-label">loot</span><div class="icons" id="basket-icons"></div></div>
+  <div id="action-pad">
+    <button class="action-btn ready" id="dash-btn">dash</button>
+    <button class="action-btn ready" id="cast-btn">cast</button>
+  </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
@@ -349,8 +399,11 @@ let currentOrderIndex = 0;
 let currentOrder = null;
 let basket = [];
 let delivered = 0;
+let chaosScore = 0;
 let dawnLeft = DAWN_MAX;
 let combo = 0;
+let streakChain = 0;
+let streakGrace = 0;
 let skillLevel = 1;
 let successStreak = 0;
 let wrongThisOrder = 0;
@@ -361,9 +414,14 @@ let orderStartedAt = 0;
 let focusSpark = 0;
 let shiftOver = false;
 let targetPoint = null;
+let dashCooldown = 0;
+let castCooldown = 0;
+let dashBurst = 0;
+const dashVector = new THREE.Vector3();
 let keys = {};
 let lastToast = null;
 let audioCtx = null;
+const shockwaves = [];
 
 // ---------- Scene ----------
 const scene = new THREE.Scene();
@@ -789,13 +847,42 @@ function renderBasket() {
 
 function renderPressure() {
   document.getElementById('challenge-label').textContent = 'heat ' + skillLevel;
-  document.getElementById('combo-label').textContent = 'combo ' + combo;
+  const chainInt = Math.max(0, Math.floor(streakChain));
+  document.getElementById('combo-label').textContent = 'combo ' + chainInt;
+  document.getElementById('score-label').textContent = 'score ' + chaosScore;
   const pct = Math.max(0, Math.min(1, dawnLeft / DAWN_MAX));
   const fill = document.getElementById('dawn-fill');
   fill.style.width = (pct * 100).toFixed(1) + '%';
   fill.style.background = pct < 0.24
     ? 'linear-gradient(90deg, #ff5d73, #ffb15f)'
     : 'linear-gradient(90deg, #f8c56d, #ff8e6b)';
+  const dashReady = dashCooldown <= 0;
+  const castReady = castCooldown <= 0;
+  const dashText = dashReady ? 'dash ✓' : 'dash ' + dashCooldown.toFixed(1);
+  const castText = castReady ? 'cast ✓' : 'cast ' + castCooldown.toFixed(1);
+  document.getElementById('skills-label').textContent = dashText + ' · ' + castText;
+  const dashBtn = document.getElementById('dash-btn');
+  const castBtn = document.getElementById('cast-btn');
+  dashBtn.classList.toggle('ready', dashReady);
+  castBtn.classList.toggle('ready', castReady);
+  dashBtn.textContent = dashReady ? 'dash' : 'dash ' + dashCooldown.toFixed(1);
+  castBtn.textContent = castReady ? 'cast' : 'cast ' + castCooldown.toFixed(1);
+}
+
+function addScore(base) {
+  const mult = 1 + Math.min(4, Math.floor(Math.max(0, streakChain) / 3));
+  chaosScore += Math.round(base * mult);
+}
+
+function pushStreak(baseScore) {
+  streakChain++;
+  streakGrace = 3.2;
+  addScore(baseScore);
+}
+
+function breakStreak() {
+  streakChain = 0;
+  streakGrace = 0;
 }
 
 function updateHint() {
@@ -821,7 +908,7 @@ function updateHint() {
     return;
   }
   const next = missingItemName();
-  hint.textContent = 'steal: ' + next + ' · follow the big GET markers';
+  hint.textContent = 'steal: ' + next + ' · dash (space/shift) · cast (E/F)';
 }
 
 function memoryBanner(text, dur=1600) {
@@ -887,6 +974,77 @@ function beep(freq=440, type='sine', gain=0.055, dur=0.25) {
   osc.start(t); osc.stop(t + dur + 0.04);
 }
 
+function triggerDash() {
+  if (!started || shiftOver || currentOrderIndex >= ORDERS.length || dashCooldown > 0) return;
+  const dir = new THREE.Vector3();
+  if (keys.w || keys.arrowup) dir.z -= 1;
+  if (keys.s || keys.arrowdown) dir.z += 1;
+  if (keys.a || keys.arrowleft) dir.x -= 1;
+  if (keys.d || keys.arrowright) dir.x += 1;
+  if (dir.lengthSq() === 0 && targetPoint) {
+    dir.set(targetPoint.x - player.position.x, 0, targetPoint.z - player.position.z);
+  }
+  if (dir.lengthSq() === 0) {
+    dir.set(Math.sin(player.rotation.y), 0, Math.cos(player.rotation.y));
+  }
+  dir.normalize();
+  dashVector.copy(dir);
+  player.position.add(dir.multiplyScalar(1.35));
+  player.position.x = THREE.MathUtils.clamp(player.position.x, -6.4, 6.4);
+  player.position.z = THREE.MathUtils.clamp(player.position.z, -5.9, 5.9);
+  dashBurst = 0.22;
+  dashCooldown = 2.1;
+  focusSpark += 0.2;
+  createPuff(player.position, 0xffc56d, 10);
+  beep(280, 'sawtooth', 0.04, 0.16);
+  renderPressure();
+}
+
+function triggerCast() {
+  if (!started || shiftOver || currentOrderIndex >= ORDERS.length || castCooldown > 0) return;
+  castCooldown = 4.6;
+  const ring = new THREE.Mesh(
+    new THREE.RingGeometry(0.18, 0.28, 28),
+    new THREE.MeshBasicMaterial({ color: 0xff5d73, transparent: true, opacity: 0.8, side: THREE.DoubleSide })
+  );
+  ring.rotation.x = -Math.PI / 2;
+  ring.position.set(player.position.x, 0.05, player.position.z);
+  ring.userData.life = 0.55;
+  ring.userData.scale = 1;
+  scene.add(ring);
+  shockwaves.push(ring);
+  let hits = 0;
+  for (const obj of itemMeshes) {
+    if (obj.cooldown > 0) continue;
+    const d = player.position.distanceTo(obj.group.position);
+    if (d > 2.2) continue;
+    const counts = neededCounts();
+    if ((counts[obj.id] || 0) > 0) {
+      hits++;
+      collectItem(obj);
+    } else {
+      obj.cooldown = 0.65;
+      obj.group.userData.kick = {
+        until: performance.now() + 300,
+        x: (Math.random() - 0.5) * 0.42,
+        z: (Math.random() - 0.5) * 0.42,
+      };
+      createPuff(obj.group.position, 0xffffff, 4);
+    }
+  }
+  if (hits > 0) {
+    pushStreak(24 * hits);
+    toast('chaos cast x' + hits, 720);
+  } else {
+    breakStreak();
+    dawnLeft = Math.max(0, dawnLeft - 1.2);
+    toast('cast fizzled', 720);
+  }
+  createPuff(player.position, hits > 0 ? 0xff5d73 : 0x6c6c7a, 14);
+  beep(220 + hits * 80, 'triangle', 0.05, 0.22);
+  renderPressure();
+}
+
 // ---------- Game logic ----------
 function neededCounts() {
   const c = {};
@@ -907,6 +1065,7 @@ function collectItem(itemObj) {
     focusSpark += 0.18;
     beep(520 + basket.length * 70, 'triangle', 0.055, 0.22);
     toast(ITEMS[itemObj.id].name);
+    pushStreak(18);
     renderOrder();
   } else {
     wrongThisOrder++;
@@ -926,6 +1085,8 @@ function wrongPickup(itemObj) {
   };
   focusSpark = Math.max(0, focusSpark - 0.12);
   combo = 0;
+  breakStreak();
+  chaosScore = Math.max(0, chaosScore - 12);
   dawnLeft = Math.max(0, dawnLeft - 5);
   renderPressure();
   setTimeout(() => itemObj.mesh.scale.setScalar(1), 140);
@@ -1015,6 +1176,7 @@ function revealOrderAgain() {
   if (shiftOver || orderVisible || currentOrderIndex >= ORDERS.length || basketMatchesOrder()) return;
   repeatsThisOrder++;
   combo = 0;
+  breakStreak();
   dawnLeft = Math.max(0, dawnLeft - 4.5);
   orderVisible = true;
   renderOrder();
@@ -1077,6 +1239,7 @@ function completeOrder() {
   const lines = ['sigil cracked.', 'stall lights glitch.', 'beacon down.', 'the district flickers.'];
   toast(delivered >= 5 ? 'district blackout complete.' : (currentOrder.react || lines[(delivered - 1) % lines.length]), 1800);
   focusSpark += 0.25;
+  pushStreak(140 + skillLevel * 20);
   updateMission();
   basket = [];
   currentOrderIndex++;
@@ -1164,6 +1327,7 @@ function endShift(dawnCaught=false) {
   document.getElementById('order-icons').innerHTML = '';
   toast(dawnCaught ? 'dawn patrol shut you down' : 'city blackout complete', 2400);
   targetPoint = null;
+  dashBurst = 0;
   updateMission();
   updateHint();
 }
@@ -1171,9 +1335,14 @@ function endShift(dawnCaught=false) {
 function restartShift() {
   clearTimeout(orderHideTimer);
   delivered = 0; currentOrderIndex = 0; basket = [];
+  chaosScore = 0;
   dawnLeft = DAWN_MAX; combo = 0; shiftOver = false;
+  streakChain = 0; streakGrace = 0;
+  dashCooldown = 0; castCooldown = 0; dashBurst = 0;
   skillLevel = 1; successStreak = 0; wrongThisOrder = 0; repeatsThisOrder = 0;
   currentOrder = null; orderVisible = true;
+  shockwaves.forEach(r => scene.remove(r));
+  shockwaves.length = 0;
   branches.forEach(l => setBeaconState(l, true));
   marketLights.forEach(bulb => setBulbState(bulb, true));
   makeCustomer();
@@ -1237,8 +1406,30 @@ window.addEventListener('pointerdown', (ev) => {
   }
   setMoveTarget(ev.clientX, ev.clientY);
 });
-window.addEventListener('keydown', ev => { keys[ev.key.toLowerCase()] = true; });
+window.addEventListener('keydown', ev => {
+  const key = ev.key.toLowerCase();
+  if ((key === ' ' || key === 'shift') && !ev.repeat) {
+    ev.preventDefault();
+    triggerDash();
+    return;
+  }
+  if ((key === 'e' || key === 'f') && !ev.repeat) {
+    triggerCast();
+    return;
+  }
+  keys[key] = true;
+});
 window.addEventListener('keyup', ev => { keys[ev.key.toLowerCase()] = false; });
+document.getElementById('dash-btn').addEventListener('pointerdown', ev => {
+  ev.stopPropagation();
+  initAudio();
+  triggerDash();
+});
+document.getElementById('cast-btn').addEventListener('pointerdown', ev => {
+  ev.stopPropagation();
+  initAudio();
+  triggerCast();
+});
 
 // ---------- Loop ----------
 let last = performance.now();
@@ -1248,10 +1439,20 @@ function animate(now=performance.now()) {
   last = now;
   const t = now / 1000;
 
+  dashCooldown = Math.max(0, dashCooldown - dt);
+  castCooldown = Math.max(0, castCooldown - dt);
+  if (streakGrace > 0) {
+    streakGrace = Math.max(0, streakGrace - dt);
+  } else if (streakChain > 0) {
+    streakChain = Math.max(0, streakChain - dt * 1.7);
+  }
+
   if (started && !shiftOver && currentOrderIndex < ORDERS.length) {
     dawnLeft = Math.max(0, dawnLeft - dt);
     renderPressure();
     if (dawnLeft <= 0) endShift(true);
+  } else if (started) {
+    renderPressure();
   }
 
   let move = new THREE.Vector3();
@@ -1264,14 +1465,22 @@ function animate(now=performance.now()) {
     targetPoint = null;
   }
   if (move.lengthSq() > 0) {
-    move.normalize().multiplyScalar(3.2 * dt);
+    const speed = 3.2 + (dashBurst > 0 ? 4.8 : 0);
+    move.normalize().multiplyScalar(speed * dt);
     player.position.add(move);
     targetPoint = null;
   } else if (targetPoint) {
     const to = new THREE.Vector3(targetPoint.x - player.position.x, 0, targetPoint.z - player.position.z);
     const d = to.length();
     if (d < 0.08) targetPoint = null;
-    else player.position.add(to.normalize().multiplyScalar(Math.min(d, 3.0 * dt)));
+    else {
+      const speed = 3.0 + (dashBurst > 0 ? 4.2 : 0);
+      player.position.add(to.normalize().multiplyScalar(Math.min(d, speed * dt)));
+    }
+  }
+  if (dashBurst > 0) {
+    dashBurst = Math.max(0, dashBurst - dt);
+    player.position.addScaledVector(dashVector, 2.8 * dt);
   }
   player.position.x = THREE.MathUtils.clamp(player.position.x, -6.4, 6.4);
   player.position.z = THREE.MathUtils.clamp(player.position.z, -5.9, 5.9);
@@ -1361,6 +1570,18 @@ function animate(now=performance.now()) {
     p.scale.multiplyScalar(1.015);
     if (p.userData.life <= 0) {
       scene.remove(p); puffs.splice(i, 1);
+    }
+  }
+
+  for (let i = shockwaves.length - 1; i >= 0; i--) {
+    const ring = shockwaves[i];
+    ring.userData.life -= dt;
+    ring.userData.scale += dt * 6.2;
+    ring.scale.setScalar(ring.userData.scale);
+    ring.material.opacity = Math.max(0, ring.userData.life * 1.8);
+    if (ring.userData.life <= 0) {
+      scene.remove(ring);
+      shockwaves.splice(i, 1);
     }
   }
 
