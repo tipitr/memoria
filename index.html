@@ -18,6 +18,18 @@
   #hud {
     position: fixed; inset: 0; pointer-events: none; z-index: 5;
   }
+  #vfx-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 4;
+    pointer-events: none;
+    background:
+      radial-gradient(120% 75% at 50% 6%, rgba(119, 145, 255, 0.14), rgba(0,0,0,0) 56%),
+      radial-gradient(120% 110% at 50% 120%, rgba(255, 92, 115, 0.11), rgba(0,0,0,0) 62%),
+      radial-gradient(130% 130% at 50% 50%, rgba(0,0,0,0) 58%, rgba(0,0,0,0.35) 100%);
+    mix-blend-mode: screen;
+    opacity: 0.95;
+  }
 
   #topbar {
     position: absolute; left: 12px; top: 12px;
@@ -322,6 +334,7 @@
   <div class="play">tap to open</div>
 </div>
 
+<div id="vfx-overlay"></div>
 <div id="hud">
   <div id="topbar">
     <div id="order-card">
@@ -348,6 +361,9 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/EffectComposer.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/RenderPass.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/postprocessing/UnrealBloomPass.js"></script>
 <script>
 /* Night Market Saboteur
    Mischief-first action loop with memory/distraction pressure hidden underneath. */
@@ -446,14 +462,26 @@ renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
 renderer.setSize(window.innerWidth, window.innerHeight);
 renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.outputEncoding = THREE.sRGBEncoding;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = 1.14;
 document.body.appendChild(renderer.domElement);
 
 scene.add(new THREE.HemisphereLight(0xa4bbff, 0x291720, 1.8));
 const moon = new THREE.DirectionalLight(0xd9e7ff, 1.1);
 moon.position.set(-3, 8, 4);
 moon.castShadow = true;
-moon.shadow.mapSize.set(1024, 1024);
+moon.shadow.mapSize.set(2048, 2048);
 scene.add(moon);
+const rim = new THREE.DirectionalLight(0xff6f88, 0.45);
+rim.position.set(4, 4, -2);
+scene.add(rim);
+
+const composer = new THREE.EffectComposer(renderer);
+const renderPass = new THREE.RenderPass(scene, camera);
+composer.addPass(renderPass);
+const bloomPass = new THREE.UnrealBloomPass(new THREE.Vector2(window.innerWidth, window.innerHeight), 0.75, 0.35, 0.8);
+composer.addPass(bloomPass);
 
 const ground = new THREE.Mesh(
   new THREE.CircleGeometry(7.6, 8),
@@ -479,6 +507,24 @@ centerGlow.rotation.x = -Math.PI / 2;
 centerGlow.position.y = 0.006;
 scene.add(centerGlow);
 
+const sky = new THREE.Mesh(
+  new THREE.SphereGeometry(30, 24, 16),
+  new THREE.MeshBasicMaterial({ color: 0x2a1f45, side: THREE.BackSide, transparent: true, opacity: 0.92 })
+);
+sky.position.y = 4.5;
+scene.add(sky);
+
+for (let i = 0; i < 18; i++) {
+  const a = (i / 18) * Math.PI * 2;
+  const r = 6.9 + (i % 3) * 0.45;
+  const beam = new THREE.Mesh(
+    new THREE.CylinderGeometry(0.03, 0.13, 2.8, 6),
+    new THREE.MeshBasicMaterial({ color: i % 2 ? 0x6da6ff : 0xff6f88, transparent: true, opacity: 0.16 })
+  );
+  beam.position.set(Math.cos(a) * r, 1.25, Math.sin(a) * r);
+  scene.add(beam);
+}
+
 const stalls = {
   tea:    { pos: new THREE.Vector3(-4.2, 0, -2.2), color: 0x62c4d8, label: 'tea' },
   bakery: { pos: new THREE.Vector3(4.1, 0, -2.0), color: 0xeb8f73, label: 'buns' },
@@ -498,8 +544,8 @@ function addCollider(x, z, radius) {
 function mat(color, opts={}) {
   return new THREE.MeshStandardMaterial({
     color,
-    roughness: opts.roughness ?? 0.75,
-    metalness: 0,
+    roughness: opts.roughness ?? 0.62,
+    metalness: opts.metalness ?? 0.06,
     emissive: opts.emissive ?? 0x000000,
     emissiveIntensity: opts.emissiveIntensity ?? 0,
     flatShading: true,
@@ -599,6 +645,13 @@ function makeStall(data) {
   sign.position.set(0, 2.15, 0.32);
   sign.scale.set(1.25, 0.48, 1);
   g.add(sign);
+  const neon = new THREE.Mesh(
+    new THREE.TorusGeometry(0.9, 0.04, 8, 24),
+    mat(data.color, { roughness: 0.2, metalness: 0.25, emissive: data.color, emissiveIntensity: 0.55 })
+  );
+  neon.position.set(0, 0.96, 0.02);
+  neon.rotation.x = Math.PI / 2;
+  g.add(neon);
   const glow = new THREE.PointLight(data.color, 1.15, 4.5, 2);
   glow.position.set(0, 1.35, 0); g.add(glow);
   scene.add(g);
@@ -762,6 +815,14 @@ function makeItemVisual(item) {
   beacon.visible = false;
   beacon.userData.kind = 'needBeacon';
   g.add(beacon);
+
+  const aura = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(0.43, 1),
+    new THREE.MeshBasicMaterial({ color: item.color, transparent: true, opacity: 0.08, wireframe: true })
+  );
+  aura.position.y = 0.48;
+  aura.userData.kind = 'aura';
+  g.add(aura);
 
   return g;
 }
@@ -1600,6 +1661,12 @@ function animate(now=performance.now()) {
     const tempting = activeOrder && !orderVisible && !basketMatchesOrder() && !isItemStillNeeded(obj.id);
     obj.group.children.forEach(child => {
       if (child.userData && child.userData.kind === 'needBeacon') child.visible = needed && !readyToDeliver;
+      if (child.userData && child.userData.kind === 'aura') {
+        child.rotation.y += dt * 0.85;
+        child.material.opacity = needed ? 0.22 : tempting ? 0.13 : 0.07;
+        const s = needed ? 1.08 : 1;
+        child.scale.setScalar(s + Math.sin(t * 4 + obj.group.position.x) * 0.05);
+      }
     });
     const targetScale = needed && !readyToDeliver ? 1.22 : 0.86;
     obj.group.scale.x += (targetScale - obj.group.scale.x) * 0.12;
@@ -1643,6 +1710,8 @@ function animate(now=performance.now()) {
     }
   });
   centerGlow.material.opacity = 0.18 + Math.min(0.2, focusSpark * 0.16) + Math.sin(t * 0.8) * 0.03;
+  bloomPass.strength = 0.62 + Math.min(0.55, focusSpark * 0.5 + cameraShake * 0.9);
+  bloomPass.radius = 0.32 + Math.min(0.22, focusSpark * 0.18);
 
   for (let i = 0; i < driftDust.length; i++) {
     const d = driftDust[i];
@@ -1696,7 +1765,7 @@ function animate(now=performance.now()) {
   camera.position.z += shakeZ;
   camera.lookAt(camera.position.x * 0.35 + shakeX * 0.7, 0, player.position.z * 0.16 + shakeZ * 0.7);
 
-  renderer.render(scene, camera);
+  composer.render();
 }
 animate();
 
@@ -1709,6 +1778,7 @@ window.addEventListener('resize', () => {
   camera.bottom = -frustum / 2;
   camera.updateProjectionMatrix();
   renderer.setSize(window.innerWidth, window.innerHeight);
+  composer.setSize(window.innerWidth, window.innerHeight);
 });
 
 renderLanterns();
