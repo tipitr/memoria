@@ -418,6 +418,9 @@ let dashCooldown = 0;
 let castCooldown = 0;
 let dashBurst = 0;
 const dashVector = new THREE.Vector3();
+const playerVel = new THREE.Vector3();
+let cameraShake = 0;
+const colliders = [];
 let keys = {};
 let lastToast = null;
 let audioCtx = null;
@@ -468,6 +471,14 @@ path.rotation.x = -Math.PI / 2;
 path.position.y = 0.012;
 scene.add(path);
 
+const centerGlow = new THREE.Mesh(
+  new THREE.CircleGeometry(6.9, 28),
+  new THREE.MeshBasicMaterial({ color: 0x3a2a56, transparent: true, opacity: 0.22 })
+);
+centerGlow.rotation.x = -Math.PI / 2;
+centerGlow.position.y = 0.006;
+scene.add(centerGlow);
+
 const stalls = {
   tea:    { pos: new THREE.Vector3(-4.2, 0, -2.2), color: 0x62c4d8, label: 'tea' },
   bakery: { pos: new THREE.Vector3(4.1, 0, -2.0), color: 0xeb8f73, label: 'buns' },
@@ -478,6 +489,11 @@ const customerGroup = new THREE.Group();
 const lanternTree = new THREE.Group();
 const marketLights = [];
 const puffs = [];
+const driftDust = [];
+
+function addCollider(x, z, radius) {
+  colliders.push({ x, z, radius });
+}
 
 function mat(color, opts={}) {
   return new THREE.MeshStandardMaterial({
@@ -586,6 +602,7 @@ function makeStall(data) {
   const glow = new THREE.PointLight(data.color, 1.15, 4.5, 2);
   glow.position.set(0, 1.35, 0); g.add(glow);
   scene.add(g);
+  addCollider(data.pos.x, data.pos.z, 1.02);
 }
 Object.values(stalls).forEach(makeStall);
 
@@ -629,6 +646,7 @@ for (let i = 0; i < 5; i++) {
   branches.push(lantern);
 }
 scene.add(lanternTree);
+addCollider(lanternTree.position.x, lanternTree.position.z, 0.84);
 
 // Courier/player.
 const player = new THREE.Group();
@@ -674,6 +692,7 @@ function makeCustomer(color=0xb392e0) {
   scene.add(customerGroup);
 }
 makeCustomer();
+addCollider(0, -4.8, 0.28);
 
 // ---------- Items ----------
 function addItemPart(group, geometry, material, x, y, z, scale=[1,1,1], rotation=[0,0,0]) {
@@ -760,6 +779,10 @@ function spawnItems() {
       const z = stall.pos.z + Math.sin(angle) * r;
       const group = new THREE.Group();
       group.position.set(x, 0, z);
+      group.userData.homeX = x;
+      group.userData.homeZ = z;
+      group.userData.vx = 0;
+      group.userData.vz = 0;
       const visual = makeItemVisual(item);
       group.add(visual);
       const halo = new THREE.Mesh(new THREE.RingGeometry(0.28, 0.36, 10), new THREE.MeshBasicMaterial({
@@ -774,6 +797,20 @@ function spawnItems() {
   });
 }
 spawnItems();
+
+for (let i = 0; i < 90; i++) {
+  const speck = new THREE.Mesh(
+    new THREE.IcosahedronGeometry(0.025 + Math.random() * 0.03, 0),
+    new THREE.MeshBasicMaterial({ color: i % 3 ? 0xd7be89 : 0x9bc6ff, transparent: true, opacity: 0.45 })
+  );
+  speck.position.set((Math.random() - 0.5) * 16, 0.2 + Math.random() * 2.4, (Math.random() - 0.5) * 14);
+  speck.userData.vx = (Math.random() - 0.5) * 0.12;
+  speck.userData.vz = (Math.random() - 0.5) * 0.12;
+  speck.userData.vy = 0.04 + Math.random() * 0.08;
+  speck.userData.phase = Math.random() * Math.PI * 2;
+  scene.add(speck);
+  driftDust.push(speck);
+}
 
 // ---------- UI ----------
 function renderLanterns() {
@@ -989,12 +1026,15 @@ function triggerDash() {
   }
   dir.normalize();
   dashVector.copy(dir);
-  player.position.add(dir.multiplyScalar(1.35));
+  playerVel.addScaledVector(dir, 5.4);
+  player.position.addScaledVector(dir, 0.22);
+  resolvePlayerCollisions();
   player.position.x = THREE.MathUtils.clamp(player.position.x, -6.4, 6.4);
   player.position.z = THREE.MathUtils.clamp(player.position.z, -5.9, 5.9);
   dashBurst = 0.22;
   dashCooldown = 2.1;
   focusSpark += 0.2;
+  cameraShake = Math.max(cameraShake, 0.11);
   createPuff(player.position, 0xffc56d, 10);
   beep(280, 'sawtooth', 0.04, 0.16);
   renderPressure();
@@ -1003,6 +1043,7 @@ function triggerDash() {
 function triggerCast() {
   if (!started || shiftOver || currentOrderIndex >= ORDERS.length || castCooldown > 0) return;
   castCooldown = 4.6;
+  cameraShake = Math.max(cameraShake, 0.18);
   const ring = new THREE.Mesh(
     new THREE.RingGeometry(0.18, 0.28, 28),
     new THREE.MeshBasicMaterial({ color: 0xff5d73, transparent: true, opacity: 0.8, side: THREE.DoubleSide })
@@ -1084,6 +1125,7 @@ function wrongPickup(itemObj) {
     z: (Math.random() - 0.5) * 0.35,
   };
   focusSpark = Math.max(0, focusSpark - 0.12);
+  cameraShake = Math.max(cameraShake, 0.08);
   combo = 0;
   breakStreak();
   chaosScore = Math.max(0, chaosScore - 12);
@@ -1234,6 +1276,7 @@ function completeOrder() {
   if (lantern) setBeaconState(lantern, false);
   disruptMarketLights();
   createPuff(customerGroup.position, 0xff5d73, 24);
+  cameraShake = Math.max(cameraShake, 0.22);
   beep(660, 'triangle', 0.06, 0.18);
   setTimeout(() => beep(880, 'triangle', 0.05, 0.26), 120);
   const lines = ['sigil cracked.', 'stall lights glitch.', 'beacon down.', 'the district flickers.'];
@@ -1339,6 +1382,8 @@ function restartShift() {
   dawnLeft = DAWN_MAX; combo = 0; shiftOver = false;
   streakChain = 0; streakGrace = 0;
   dashCooldown = 0; castCooldown = 0; dashBurst = 0;
+  playerVel.set(0, 0, 0);
+  cameraShake = 0;
   skillLevel = 1; successStreak = 0; wrongThisOrder = 0; repeatsThisOrder = 0;
   currentOrder = null; orderVisible = true;
   shockwaves.forEach(r => scene.remove(r));
@@ -1368,6 +1413,29 @@ function createPuff(pos, color, count=10) {
     );
     m.userData.life = 1;
     scene.add(m); puffs.push(m);
+  }
+}
+
+function resolvePlayerCollisions() {
+  const playerRadius = 0.34;
+  for (const c of colliders) {
+    const dx = player.position.x - c.x;
+    const dz = player.position.z - c.z;
+    const distSq = dx * dx + dz * dz;
+    const minDist = playerRadius + c.radius;
+    if (distSq >= minDist * minDist) continue;
+    const dist = Math.sqrt(Math.max(0.0001, distSq));
+    const nx = dx / dist;
+    const nz = dz / dist;
+    const push = minDist - dist;
+    player.position.x += nx * push;
+    player.position.z += nz * push;
+    const vn = playerVel.x * nx + playerVel.z * nz;
+    if (vn < 0) {
+      playerVel.x -= vn * nx * 1.5;
+      playerVel.z -= vn * nz * 1.5;
+      cameraShake = Math.max(cameraShake, 0.05);
+    }
   }
 }
 
@@ -1464,28 +1532,41 @@ function animate(now=performance.now()) {
   } else {
     targetPoint = null;
   }
+  let desired = new THREE.Vector3();
   if (move.lengthSq() > 0) {
-    const speed = 3.2 + (dashBurst > 0 ? 4.8 : 0);
-    move.normalize().multiplyScalar(speed * dt);
-    player.position.add(move);
+    desired.copy(move).normalize();
     targetPoint = null;
   } else if (targetPoint) {
-    const to = new THREE.Vector3(targetPoint.x - player.position.x, 0, targetPoint.z - player.position.z);
-    const d = to.length();
-    if (d < 0.08) targetPoint = null;
-    else {
-      const speed = 3.0 + (dashBurst > 0 ? 4.2 : 0);
-      player.position.add(to.normalize().multiplyScalar(Math.min(d, speed * dt)));
+    desired.set(targetPoint.x - player.position.x, 0, targetPoint.z - player.position.z);
+    const d = desired.length();
+    if (d < 0.12) {
+      targetPoint = null;
+    } else {
+      desired.multiplyScalar(1 / Math.max(0.0001, d));
+      if (d < 0.65) desired.multiplyScalar(d / 0.65);
     }
   }
+  const accel = dashBurst > 0 ? 28 : 20;
+  playerVel.addScaledVector(desired, accel * dt);
+  const drag = desired.lengthSq() > 0 ? 7.2 : 10.6;
+  playerVel.multiplyScalar(Math.max(0, 1 - drag * dt));
   if (dashBurst > 0) {
     dashBurst = Math.max(0, dashBurst - dt);
-    player.position.addScaledVector(dashVector, 2.8 * dt);
+    playerVel.addScaledVector(dashVector, 18 * dt);
   }
+  const maxSpeed = dashBurst > 0 ? 7.8 : 3.9;
+  const speedNow = Math.hypot(playerVel.x, playerVel.z);
+  if (speedNow > maxSpeed) {
+    const s = maxSpeed / speedNow;
+    playerVel.x *= s;
+    playerVel.z *= s;
+  }
+  player.position.addScaledVector(playerVel, dt);
+  resolvePlayerCollisions();
   player.position.x = THREE.MathUtils.clamp(player.position.x, -6.4, 6.4);
   player.position.z = THREE.MathUtils.clamp(player.position.z, -5.9, 5.9);
-  if (move.lengthSq() > 0 || targetPoint) {
-    const look = targetPoint || player.position.clone().add(move);
+  if (speedNow > 0.02 || targetPoint) {
+    const look = targetPoint || player.position.clone().add(playerVel);
     player.rotation.y = Math.atan2(look.x - player.position.x, look.z - player.position.z);
   }
   player.position.y = Math.sin(t * 10) * 0.025;
@@ -1499,12 +1580,20 @@ function animate(now=performance.now()) {
     if (obj.group.userData.kick) {
       const k = obj.group.userData.kick;
       if (performance.now() < k.until) {
-        obj.group.position.x += k.x * dt * 6;
-        obj.group.position.z += k.z * dt * 6;
+        obj.group.userData.vx += k.x * dt * 30;
+        obj.group.userData.vz += k.z * dt * 30;
       } else {
         obj.group.userData.kick = null;
       }
     }
+    const homeX = obj.group.userData.homeX;
+    const homeZ = obj.group.userData.homeZ;
+    obj.group.userData.vx += (homeX - obj.group.position.x) * dt * 14;
+    obj.group.userData.vz += (homeZ - obj.group.position.z) * dt * 14;
+    obj.group.userData.vx *= Math.max(0, 1 - dt * 8);
+    obj.group.userData.vz *= Math.max(0, 1 - dt * 8);
+    obj.group.position.x += obj.group.userData.vx * dt;
+    obj.group.position.z += obj.group.userData.vz * dt;
     const activeOrder = started && !shiftOver && currentOrderIndex < ORDERS.length;
     const needed = activeOrder && orderVisible && isItemStillNeeded(obj.id);
     const readyToDeliver = activeOrder && basketMatchesOrder();
@@ -1553,6 +1642,19 @@ function animate(now=performance.now()) {
       if (bulb.userData.light) bulb.userData.light.intensity = 0.18 * b;
     }
   });
+  centerGlow.material.opacity = 0.18 + Math.min(0.2, focusSpark * 0.16) + Math.sin(t * 0.8) * 0.03;
+
+  for (let i = 0; i < driftDust.length; i++) {
+    const d = driftDust[i];
+    d.position.x += d.userData.vx * dt;
+    d.position.z += d.userData.vz * dt;
+    d.position.y += Math.sin(t * d.userData.vy + d.userData.phase) * dt * 0.13;
+    if (d.position.x > 8) d.position.x = -8;
+    if (d.position.x < -8) d.position.x = 8;
+    if (d.position.z > 7) d.position.z = -7;
+    if (d.position.z < -7) d.position.z = 7;
+    d.material.opacity = 0.22 + 0.24 * (0.5 + Math.sin(t * 1.4 + d.userData.phase) * 0.5);
+  }
 
   for (let i = puffs.length - 1; i >= 0; i--) {
     const p = puffs[i];
@@ -1585,9 +1687,14 @@ function animate(now=performance.now()) {
     }
   }
 
+  cameraShake = Math.max(0, cameraShake - dt * 0.7);
+  const shakeX = (Math.sin(t * 48) + Math.sin(t * 27 + 1.7)) * cameraShake * 0.08;
+  const shakeZ = (Math.cos(t * 42 + 0.4) + Math.sin(t * 31 + 0.9)) * cameraShake * 0.08;
   camera.position.x += (player.position.x * 0.18 - camera.position.x) * 0.04;
   camera.position.z += ((8.5 + player.position.z * 0.08) - camera.position.z) * 0.04;
-  camera.lookAt(camera.position.x * 0.35, 0, player.position.z * 0.16);
+  camera.position.x += shakeX;
+  camera.position.z += shakeZ;
+  camera.lookAt(camera.position.x * 0.35 + shakeX * 0.7, 0, player.position.z * 0.16 + shakeZ * 0.7);
 
   renderer.render(scene, camera);
 }
