@@ -8,7 +8,7 @@
   * { box-sizing: border-box; margin: 0; padding: 0; }
   html, body {
     width: 100%; height: 100%; overflow: hidden;
-    background: #101018; color: #f4e8cb;
+    background: #1d2229; color: #dde3ea;
     font-family: ui-rounded, "Avenir Next", "Trebuchet MS", system-ui, sans-serif;
     -webkit-font-smoothing: antialiased;
     touch-action: none; user-select: none;
@@ -30,11 +30,11 @@
     padding: 9px 10px 10px;
     border-radius: 13px;
     background:
-      linear-gradient(90deg, rgba(33, 20, 43, 0.9), rgba(33, 20, 43, 0.5)),
-      linear-gradient(160deg, rgba(255,238,190,0.18), rgba(226,166,101,0.08));
-    border: 1px solid rgba(248,197,109,0.25);
+      linear-gradient(90deg, rgba(45, 52, 61, 0.92), rgba(45, 52, 61, 0.72)),
+      linear-gradient(160deg, rgba(200,208,218,0.1), rgba(84,95,109,0.06));
+    border: 1px solid rgba(162,173,186,0.34);
     box-shadow: 0 12px 30px rgba(0,0,0,0.24);
-    color: #f4e8cb;
+    color: #dce3eb;
     backdrop-filter: blur(7px);
   }
   #order-card.memory-mode {
@@ -42,7 +42,7 @@
   }
 
   #customer-name {
-    font-size: 10px; color: #f8c56d; letter-spacing: 0.08em;
+    font-size: 10px; color: #bfcbd7; letter-spacing: 0.08em;
     text-transform: uppercase; margin-bottom: 6px;
     font-weight: 900;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
@@ -50,7 +50,7 @@
 
   #customer-line {
     font-size: 13px;
-    line-height: 1.15; color: rgba(244,232,203,0.9);
+    line-height: 1.15; color: rgba(220,228,238,0.9);
     font-weight: 800;
     margin-bottom: 8px;
   }
@@ -62,10 +62,10 @@
     display: grid; grid-template-columns: 19px 1fr; gap: 4px; align-items: center;
     padding: 5px 6px;
     font-size: 20px;
-    background: rgba(255,238,190,0.12);
-    border: 1px solid rgba(248,197,109,0.2);
+    background: rgba(164,176,190,0.14);
+    border: 1px solid rgba(156,168,181,0.28);
     box-shadow: inset 0 -4px 0 rgba(0,0,0,0.08);
-    color: #f4e8cb;
+    color: #dbe2ea;
   }
   .icon .mark { text-align: center; font-size: 21px; line-height: 1; }
   .icon .name {
@@ -76,8 +76,8 @@
     letter-spacing: 0.03em;
   }
   .icon.done {
-    background: rgba(122, 216, 151, 0.35);
-    border-color: rgba(48, 132, 86, 0.55);
+    background: rgba(123, 154, 179, 0.32);
+    border-color: rgba(96, 126, 153, 0.56);
     transform: scale(0.96);
   }
 
@@ -86,7 +86,7 @@
     display: flex; flex-direction: column; gap: 8px;
     padding: 10px;
     border-radius: 14px;
-    background: rgba(20, 15, 30, 0.64);
+    background: rgba(41, 47, 56, 0.72);
     border: 1px solid rgba(255,255,255,0.12);
     backdrop-filter: blur(8px);
   }
@@ -94,21 +94,21 @@
   #pressure {
     padding: 8px 9px;
     border-radius: 12px;
-    background: rgba(18, 13, 26, 0.64);
+    background: rgba(39, 45, 55, 0.78);
     border: 1px solid rgba(255,255,255,0.1);
     box-shadow: 0 10px 24px rgba(0,0,0,0.2);
     backdrop-filter: blur(7px);
   }
   #pressure-row {
     display: flex; justify-content: space-between; gap: 10px;
-    color: rgba(244,232,203,0.82);
+    color: rgba(216,224,233,0.86);
     font-size: 10px; font-weight: 900; letter-spacing: 0.08em;
     text-transform: uppercase;
   }
   #meta-row {
     margin-top: 7px;
     display: flex; justify-content: space-between; gap: 10px;
-    color: rgba(244,232,203,0.78);
+    color: rgba(196,206,218,0.88);
     font-size: 10px; font-weight: 900; letter-spacing: 0.06em;
     text-transform: uppercase;
   }
@@ -119,7 +119,7 @@
   }
   #dawn-fill {
     width: 100%; height: 100%;
-    background: linear-gradient(90deg, #f8c56d, #ff8e6b);
+    background: linear-gradient(90deg, #8ea2b3, #bca689);
     border-radius: inherit;
     transition: width 180ms linear, background 300ms ease;
   }
@@ -132,8 +132,8 @@
     transition: background 450ms ease, box-shadow 450ms ease, transform 450ms ease;
   }
   .lantern-dot.lit {
-    background: #ff5d73;
-    box-shadow: 0 0 16px #ff5d73;
+    background: #cc8658;
+    box-shadow: 0 0 14px rgba(204,134,88,0.55);
     transform: rotate(45deg) scale(1.16);
   }
 
@@ -142,12 +142,12 @@
     display: flex; gap: 8px; min-height: 52px; align-items: center; justify-content: center;
     padding: 8px 12px;
     border-radius: 24px 24px 18px 18px;
-    background: linear-gradient(160deg, rgba(255,238,190,0.94), rgba(209,124,84,0.9));
-    border: 2px solid rgba(88, 43, 42, 0.28);
+    background: linear-gradient(160deg, rgba(87,98,111,0.94), rgba(66,76,88,0.92));
+    border: 2px solid rgba(151,164,179,0.3);
     box-shadow: 0 14px 34px rgba(0,0,0,0.24);
   }
   #basket-label {
-    font-size: 11px; color: rgba(56,33,50,0.68);
+    font-size: 11px; color: rgba(212,222,232,0.7);
     letter-spacing: 0.16em; text-transform: uppercase; margin-right: 3px;
     font-weight: 900;
   }
@@ -164,8 +164,8 @@
     height: 44px;
     border: 1px solid rgba(255,255,255,0.2);
     border-radius: 12px;
-    background: rgba(18, 13, 26, 0.76);
-    color: #f4e8cb;
+    background: rgba(43, 49, 58, 0.88);
+    color: #dfe6ee;
     font-size: 11px;
     font-weight: 900;
     letter-spacing: 0.08em;
@@ -174,8 +174,8 @@
     box-shadow: 0 8px 22px rgba(0,0,0,0.24);
   }
   .action-btn.ready {
-    border-color: rgba(248,197,109,0.52);
-    box-shadow: 0 0 0 1px rgba(248,197,109,0.22), 0 8px 22px rgba(0,0,0,0.24);
+    border-color: rgba(174,188,205,0.58);
+    box-shadow: 0 0 0 1px rgba(154,170,188,0.22), 0 8px 22px rgba(0,0,0,0.24);
   }
   .action-btn:active {
     transform: translateY(1px) scale(0.98);
@@ -185,9 +185,9 @@
     position: absolute; left: 50%; top: 47%; transform: translate(-50%, -50%);
     padding: 12px 18px;
     border-radius: 999px;
-    background: rgba(16, 12, 22, 0.78);
+    background: rgba(37, 43, 52, 0.9);
     border: 1px solid rgba(255,255,255,0.14);
-    color: #f7ebd0;
+    color: #dbe3eb;
     font-size: clamp(15px, 3vw, 20px);
     opacity: 0; transition: opacity 220ms ease, transform 220ms ease;
     white-space: nowrap;
@@ -202,8 +202,8 @@
     border-radius: 14px;
     display: grid; place-items: center;
     font-size: 25px;
-    background: linear-gradient(160deg, rgba(255,238,190,0.98), rgba(226,166,101,0.94));
-    border: 2px solid rgba(88,43,42,0.28);
+    background: linear-gradient(160deg, rgba(103,114,128,0.98), rgba(82,92,104,0.94));
+    border: 2px solid rgba(155,168,182,0.28);
     box-shadow: 0 12px 30px rgba(0,0,0,0.28);
     pointer-events: none;
     transform: translate(-50%, -50%);
@@ -213,7 +213,7 @@
   #hint {
     position: absolute; left: 50%; bottom: calc(max(16px, env(safe-area-inset-bottom)) + 72px);
     transform: translateX(-50%);
-    color: rgba(244,232,203,0.66);
+    color: rgba(194,206,218,0.76);
     font-size: 13px;
     text-align: center;
     text-shadow: 0 2px 14px rgba(0,0,0,0.6);
@@ -225,23 +225,23 @@
     max-width: min(430px, calc(100vw - 28px));
     padding: 10px 13px;
     border-radius: 16px;
-    background: rgba(18, 13, 26, 0.72);
-    border: 1px solid rgba(248,197,109,0.22);
-    color: rgba(244,232,203,0.82);
+    background: rgba(43, 49, 58, 0.8);
+    border: 1px solid rgba(154,170,188,0.22);
+    color: rgba(205,216,227,0.86);
     font-size: 13px;
     line-height: 1.25;
     box-shadow: 0 12px 32px rgba(0,0,0,0.24);
     transition: opacity 500ms ease, transform 500ms ease;
   }
-  #mission strong { color: #f8c56d; }
+  #mission strong { color: #b8c6d6; }
 
   #memory-banner {
     position: absolute; left: 50%; top: 16px; transform: translateX(-50%);
     padding: 9px 13px;
     border-radius: 999px;
-    background: rgba(18, 13, 26, 0.72);
-    border: 1px solid rgba(248,197,109,0.25);
-    color: rgba(244,232,203,0.82);
+    background: rgba(43, 49, 58, 0.84);
+    border: 1px solid rgba(154,170,188,0.25);
+    color: rgba(208,218,228,0.86);
     font-size: 13px;
     font-weight: 800;
     box-shadow: 0 12px 28px rgba(0,0,0,0.22);
@@ -255,7 +255,7 @@
     position: fixed; inset: 0; z-index: 10;
     display: flex; flex-direction: column; justify-content: center; align-items: center;
     padding: 26px;
-    background: radial-gradient(circle at 50% 30%, rgba(70,45,110,0.5), #101018 64%);
+    background: radial-gradient(circle at 50% 30%, rgba(54,67,82,0.48), #1d2229 64%);
     transition: opacity 600ms ease;
     text-align: center;
   }
@@ -264,26 +264,26 @@
     font-size: clamp(36px, 8vw, 74px);
     line-height: 0.92;
     letter-spacing: 0.02em;
-    color: #f8c56d;
-    text-shadow: 0 0 28px rgba(248,197,109,0.34);
+    color: #d9e1ea;
+    text-shadow: 0 0 26px rgba(170,184,198,0.32);
     margin-bottom: 16px;
   }
   #start p {
     max-width: 540px;
     font-size: clamp(15px, 2.5vw, 19px);
     line-height: 1.45;
-    color: rgba(244,232,203,0.78);
+    color: rgba(206,216,226,0.8);
     margin-bottom: 28px;
   }
   #start .play {
     padding: 13px 24px;
     border-radius: 999px;
-    background: #f8c56d;
-    color: #221520;
+    background: #9caebe;
+    color: #1d242c;
     font-weight: 800;
     letter-spacing: 0.08em;
     text-transform: uppercase;
-    box-shadow: 0 0 30px rgba(248,197,109,0.34);
+    box-shadow: 0 0 26px rgba(144,162,180,0.34);
   }
 
   @media (max-width: 680px) {
@@ -640,7 +640,7 @@ for (let i = 0; i < 14; i++) {
   );
   lamp.position.set(x, 1.72, z);
   scene.add(lamp);
-  const l = new THREE.PointLight(0xf8c56d, 0.16, 2.8, 2);
+  const l = new THREE.PointLight(0xe9d8bc, 0.12, 2.5, 2);
   l.position.copy(lamp.position);
   lamp.userData.light = l;
   scene.add(l);
@@ -658,11 +658,11 @@ for (let i = 0; i < 5; i++) {
   lanternTree.add(branch);
   const lantern = new THREE.Mesh(
     new THREE.BoxGeometry(0.2, 0.14, 0.12),
-    mat(0xd3d9e2, { emissive: 0xf8c56d, emissiveIntensity: 1.5, roughness: 0.34, metalness: 0.14 })
+    mat(0xd3d9e2, { emissive: 0xe1cfb2, emissiveIntensity: 1.15, roughness: 0.34, metalness: 0.14 })
   );
   lantern.position.set(i % 2 ? -0.28 : 0.28, branch.position.y + 0.02, 0);
   lantern.userData.lit = true;
-  lantern.userData.light = new THREE.PointLight(0xf8c56d, 0.42, 2.4, 2);
+  lantern.userData.light = new THREE.PointLight(0xe1cfb2, 0.3, 2.2, 2);
   lantern.userData.light.position.copy(lantern.position);
   lanternTree.add(lantern.userData.light);
   lanternTree.add(lantern);
@@ -940,8 +940,8 @@ function renderPressure() {
   const fill = document.getElementById('dawn-fill');
   fill.style.width = (pct * 100).toFixed(1) + '%';
   fill.style.background = pct < 0.24
-    ? 'linear-gradient(90deg, #ff5d73, #ffb15f)'
-    : 'linear-gradient(90deg, #f8c56d, #ff8e6b)';
+    ? 'linear-gradient(90deg, #a85f4e, #c08e64)'
+    : 'linear-gradient(90deg, #869caf, #b9a687)';
   const dashReady = dashCooldown <= 0;
   const castReady = castCooldown <= 0;
   const dashText = dashReady ? 'dash ✓' : 'dash ' + dashCooldown.toFixed(1);
@@ -1348,16 +1348,16 @@ function completeOrder() {
 function setBeaconState(lantern, on) {
   lantern.userData.lit = on;
   if (on) {
-    lantern.material.color.setHex(0xf8c56d);
-    lantern.material.emissive.setHex(0xf8c56d);
-    lantern.material.emissiveIntensity = 1.7;
+    lantern.material.color.setHex(0xd3d9e2);
+    lantern.material.emissive.setHex(0xe1cfb2);
+    lantern.material.emissiveIntensity = 1.15;
     if (!lantern.userData.light) {
-      lantern.userData.light = new THREE.PointLight(0xf8c56d, 0.6, 3, 2);
+      lantern.userData.light = new THREE.PointLight(0xe1cfb2, 0.3, 2.2, 2);
       lantern.userData.light.position.copy(lantern.position);
       lanternTree.add(lantern.userData.light);
     }
   } else {
-    lantern.material.color.setHex(0x2d2432);
+    lantern.material.color.setHex(0x495260);
     lantern.material.emissive.setHex(0x000000);
     lantern.material.emissiveIntensity = 0;
     if (lantern.userData.light) {
@@ -1370,17 +1370,17 @@ function setBeaconState(lantern, on) {
 function setBulbState(bulb, on) {
   bulb.userData.on = on;
   if (on) {
-    bulb.material.color.setHex(0xf8c56d);
-    bulb.material.emissive.setHex(0xf8c56d);
-    bulb.material.emissiveIntensity = 1.1;
+    bulb.material.color.setHex(0xd3d9e2);
+    bulb.material.emissive.setHex(0xe1cfb2);
+    bulb.material.emissiveIntensity = 0.9;
     if (!bulb.userData.light) {
-      const l = new THREE.PointLight(0xf8c56d, 0.18, 2.6, 2);
+      const l = new THREE.PointLight(0xe1cfb2, 0.12, 2.5, 2);
       l.position.copy(bulb.position);
       bulb.userData.light = l;
       scene.add(l);
     }
   } else {
-    bulb.material.color.setHex(0x3f3248);
+    bulb.material.color.setHex(0x4d5562);
     bulb.material.emissive.setHex(0x000000);
     bulb.material.emissiveIntensity = 0;
     if (bulb.userData.light) {
@@ -1686,9 +1686,9 @@ function animate(now=performance.now()) {
   marketLights.forEach((bulb, i) => {
     if (bulb.material.emissiveIntensity > 0) {
       const b = 0.85 + Math.sin(t * 2.2 + i) * 0.15;
-      bulb.material.emissiveIntensity = 1.1 * b;
+      bulb.material.emissiveIntensity = 0.9 * b;
       bulb.scale.setScalar(1 + Math.sin(t * 2.5 + i) * 0.08);
-      if (bulb.userData.light) bulb.userData.light.intensity = 0.18 * b;
+      if (bulb.userData.light) bulb.userData.light.intensity = 0.12 * b;
     }
   });
   for (let i = 0; i < driftDust.length; i++) {
@@ -1700,7 +1700,7 @@ function animate(now=performance.now()) {
     if (d.position.x < -8) d.position.x = 8;
     if (d.position.z > 7) d.position.z = -7;
     if (d.position.z < -7) d.position.z = 7;
-    d.material.opacity = 0.22 + 0.24 * (0.5 + Math.sin(t * 1.4 + d.userData.phase) * 0.5);
+    d.material.opacity = 0.1 + 0.1 * (0.5 + Math.sin(t * 1.4 + d.userData.phase) * 0.5);
   }
 
   for (let i = puffs.length - 1; i >= 0; i--) {
