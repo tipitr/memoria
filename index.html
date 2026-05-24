@@ -353,12 +353,12 @@
    Mischief-first action loop with memory/distraction pressure hidden underneath. */
 
 const ITEMS = {
-  moonTea:   { name: 'moon tea',   short: 'tea',     icon: '☾', color: 0x86d7ff, shape: 'cup',   stall: 'tea' },
-  blueBun:   { name: 'blue bun',   short: 'bun',     icon: '●', color: 0x7aa6ff, shape: 'bun',   stall: 'bakery' },
-  starPlum:  { name: 'star plum',  short: 'plum',    icon: '✦', color: 0xe7c86a, shape: 'fruit', stall: 'fruit' },
-  cloudRice: { name: 'cloud rice', short: 'rice',    icon: '◇', color: 0xf3f1dc, shape: 'bowl',  stall: 'tea' },
-  foxCandy:  { name: 'fox candy',  short: 'candy',   icon: '◆', color: 0xff8e6b, shape: 'gem',   stall: 'bakery' },
-  mintLantern:{name: 'mint lamp',  short: 'lamp',    icon: '✺', color: 0x7edb9a, shape: 'lamp',  stall: 'fruit' },
+  moonTea:   { name: 'moon tea',   short: 'tea',     icon: 'T', color: 0x8ca4b5, shape: 'cup',   stall: 'tea' },
+  blueBun:   { name: 'blue bun',   short: 'bun',     icon: 'B', color: 0x8f98b0, shape: 'bun',   stall: 'bakery' },
+  starPlum:  { name: 'star plum',  short: 'plum',    icon: 'P', color: 0xb09b7f, shape: 'fruit', stall: 'fruit' },
+  cloudRice: { name: 'cloud rice', short: 'rice',    icon: 'R', color: 0xd5d4cf, shape: 'bowl',  stall: 'tea' },
+  foxCandy:  { name: 'fox candy',  short: 'candy',   icon: 'C', color: 0xb98771, shape: 'gem',   stall: 'bakery' },
+  mintLantern:{name: 'mint lamp',  short: 'lamp',    icon: 'L', color: 0x8ea291, shape: 'lamp',  stall: 'fruit' },
 };
 const ITEM_IDS = Object.keys(ITEMS);
 
@@ -429,7 +429,7 @@ const shockwaves = [];
 // ---------- Scene ----------
 const scene = new THREE.Scene();
 scene.background = new THREE.Color(0x212630);
-scene.fog = new THREE.FogExp2(0x2a313c, 0.02);
+scene.fog = new THREE.FogExp2(0x2a313c, 0.009);
 
 const aspect = window.innerWidth / window.innerHeight;
 const frustum = window.innerWidth < 700 ? 9.2 : 11.5;
@@ -448,10 +448,10 @@ renderer.shadowMap.enabled = true;
 renderer.shadowMap.type = THREE.PCFSoftShadowMap;
 renderer.outputEncoding = THREE.sRGBEncoding;
 renderer.toneMapping = THREE.ACESFilmicToneMapping;
-renderer.toneMappingExposure = 1.14;
+renderer.toneMappingExposure = 0.98;
 document.body.appendChild(renderer.domElement);
 
-scene.add(new THREE.HemisphereLight(0xa4bbff, 0x291720, 1.8));
+scene.add(new THREE.HemisphereLight(0xcfd7e4, 0x3d4249, 1.35));
 const moon = new THREE.DirectionalLight(0xe1e6ee, 0.95);
 moon.position.set(-4, 10, 5);
 moon.castShadow = true;
@@ -520,7 +520,7 @@ function mat(color, opts={}) {
     metalness: opts.metalness ?? 0.06,
     emissive: opts.emissive ?? 0x000000,
     emissiveIntensity: opts.emissiveIntensity ?? 0,
-    flatShading: true,
+    flatShading: false,
     transparent: opts.transparent ?? false,
     opacity: opts.opacity ?? 1,
   });
@@ -673,35 +673,49 @@ addCollider(lanternTree.position.x, lanternTree.position.z, 0.84);
 
 // Courier/player.
 const player = new THREE.Group();
-const torso = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.54, 0.22), mat(0x303844, { roughness: 0.7 }));
-torso.position.y = 0.72; torso.castShadow = true; player.add(torso);
-const head = new THREE.Mesh(new THREE.SphereGeometry(0.15, 12, 10), mat(0xe3c9b5, { roughness: 0.56 }));
-head.position.y = 1.12; head.castShadow = true; player.add(head);
-for (const x of [-0.1, 0.1]) {
-  const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 0.4, 8), mat(0x1f252d));
-  leg.position.set(x, 0.22, 0);
+const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.12, 0.14, 0.42, 14), mat(0x35414e, { roughness: 0.7 }));
+torso.position.y = 0.8; torso.castShadow = true; player.add(torso);
+const pelvis = new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 10), mat(0x2c3743, { roughness: 0.72 }));
+pelvis.position.y = 0.56; pelvis.castShadow = true; player.add(pelvis);
+const head = new THREE.Mesh(new THREE.SphereGeometry(0.12, 14, 12), mat(0xe2c9b5, { roughness: 0.54 }));
+head.position.y = 1.15; head.castShadow = true; player.add(head);
+for (const x of [-0.09, 0.09]) {
+  const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.034, 0.036, 0.32, 10), mat(0x2f3b48));
+  arm.position.set(x * 1.5, 0.82, 0);
+  arm.rotation.z = x < 0 ? 0.35 : -0.35;
+  arm.castShadow = true;
+  player.add(arm);
+  const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.04, 0.042, 0.36, 10), mat(0x1f252d));
+  leg.position.set(x, 0.2, 0.01);
   leg.castShadow = true;
   player.add(leg);
 }
-const basketMesh = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.16, 0.2), mat(0x5c646f, { roughness: 0.76 }));
-basketMesh.position.set(0.24, 0.72, 0.02); basketMesh.castShadow = true; player.add(basketMesh);
+const basketMesh = new THREE.Mesh(new THREE.BoxGeometry(0.28, 0.14, 0.18), mat(0x6b727b, { roughness: 0.8 }));
+basketMesh.position.set(0.2, 0.76, 0.03); basketMesh.castShadow = true; player.add(basketMesh);
 player.position.set(0, 0, 0);
 scene.add(player);
 
 function makeCustomer(color=0xb392e0) {
   customerGroup.clear();
   customerGroup.position.set(0, 0, -4.8);
-  const torso = new THREE.Mesh(new THREE.BoxGeometry(0.44, 0.62, 0.25), mat(0x55606e, { roughness: 0.76 }));
-  torso.position.y = 0.72; torso.castShadow = true; customerGroup.add(torso);
-  const head = new THREE.Mesh(new THREE.SphereGeometry(0.16, 12, 10), mat(0xe3c9b5, { roughness: 0.55 }));
-  head.position.y = 1.18; head.castShadow = true; customerGroup.add(head);
-  for (const x of [-0.12, 0.12]) {
-    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.06, 0.06, 0.42, 8), mat(0x3a4048));
-    leg.position.set(x, 0.24, 0);
+  const torso = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.15, 0.48, 14), mat(0x5a6570, { roughness: 0.74 }));
+  torso.position.y = 0.8; torso.castShadow = true; customerGroup.add(torso);
+  const pelvis = new THREE.Mesh(new THREE.SphereGeometry(0.13, 12, 10), mat(0x4a5560, { roughness: 0.75 }));
+  pelvis.position.y = 0.56; pelvis.castShadow = true; customerGroup.add(pelvis);
+  const head = new THREE.Mesh(new THREE.SphereGeometry(0.13, 14, 12), mat(0xe3c9b5, { roughness: 0.55 }));
+  head.position.y = 1.2; head.castShadow = true; customerGroup.add(head);
+  for (const x of [-0.1, 0.1]) {
+    const arm = new THREE.Mesh(new THREE.CylinderGeometry(0.036, 0.038, 0.34, 10), mat(0x4e5966));
+    arm.position.set(x * 1.45, 0.82, 0);
+    arm.rotation.z = x < 0 ? 0.34 : -0.34;
+    arm.castShadow = true;
+    customerGroup.add(arm);
+    const leg = new THREE.Mesh(new THREE.CylinderGeometry(0.042, 0.042, 0.38, 10), mat(0x343c45));
+    leg.position.set(x, 0.2, 0.01);
     leg.castShadow = true;
     customerGroup.add(leg);
   }
-  const bob = new THREE.PointLight(0xf2d6b8, 0.18, 2.4, 2);
+  const bob = new THREE.PointLight(0xf0d2b2, 0.12, 2.2, 2);
   bob.position.y = 1.34; customerGroup.add(bob);
   const label = makeCanvasSprite({
     text: 'DROP',
@@ -742,9 +756,9 @@ function addItemPart(group, geometry, material, x, y, z, scale=[1,1,1], rotation
 
 function makeItemVisual(item) {
   const g = new THREE.Group();
-  const main = mat(item.color, { emissive: item.color, emissiveIntensity: 0.34 });
-  const dark = mat(0x2a1630);
-  const light = mat(0xfff0c6, { emissive: 0xffd78a, emissiveIntensity: 0.08 });
+  const main = mat(item.color, { roughness: 0.72, metalness: 0.02 });
+  const dark = mat(0x3b424b, { roughness: 0.8 });
+  const light = mat(0xe4e1d8, { roughness: 0.65, metalness: 0.01 });
 
   if (item.shape === 'cup') {
     addItemPart(g, new THREE.CylinderGeometry(0.18, 0.24, 0.38, 8), main, 0, 0.35, 0);
@@ -773,8 +787,8 @@ function makeItemVisual(item) {
   const label = makeCanvasSprite({
     text: item.icon,
     sub: item.short,
-    color: item.color,
-    bg: 'rgba(30, 16, 34, 0.9)',
+    color: 0xe3e9f1,
+    bg: 'rgba(56, 63, 74, 0.92)',
     w: 180,
     h: 138,
     fontSize: 54,
@@ -786,8 +800,8 @@ function makeItemVisual(item) {
   const beacon = makeCanvasSprite({
     text: 'GET',
     sub: item.short,
-    color: item.color,
-    bg: 'rgba(255, 238, 190, 0.96)',
+    color: 0xe3e9f1,
+    bg: 'rgba(56, 63, 74, 0.96)',
     w: 190,
     h: 118,
     fontSize: 42,
@@ -821,7 +835,7 @@ function spawnItems() {
       const visual = makeItemVisual(item);
       group.add(visual);
       const halo = new THREE.Mesh(new THREE.RingGeometry(0.28, 0.36, 10), new THREE.MeshBasicMaterial({
-        color: item.color, transparent: true, opacity: 0.26, side: THREE.DoubleSide,
+        color: 0xadb5c2, transparent: true, opacity: 0.12, side: THREE.DoubleSide,
       }));
       halo.rotation.x = -Math.PI / 2; halo.position.y = 0.03; group.add(halo);
       group.userData.itemId = id;
@@ -836,7 +850,7 @@ spawnItems();
 for (let i = 0; i < 90; i++) {
   const speck = new THREE.Mesh(
     new THREE.IcosahedronGeometry(0.025 + Math.random() * 0.03, 0),
-    new THREE.MeshBasicMaterial({ color: i % 3 ? 0xd7be89 : 0x9bc6ff, transparent: true, opacity: 0.45 })
+    new THREE.MeshBasicMaterial({ color: i % 3 ? 0x8d949e : 0x737a84, transparent: true, opacity: 0.2 })
   );
   speck.position.set((Math.random() - 0.5) * 16, 0.2 + Math.random() * 2.4, (Math.random() - 0.5) * 14);
   speck.userData.vx = (Math.random() - 0.5) * 0.12;
@@ -876,7 +890,7 @@ function iconEl(id, done=false) {
 function renderOrder() {
   currentOrder = currentOrder || ORDERS[currentOrderIndex];
   document.getElementById('order-card').classList.toggle('memory-mode', !orderVisible);
-  document.getElementById('customer-name').textContent = 'chaos plan · ' + currentOrder.customer;
+  document.getElementById('customer-name').textContent = 'route plan · ' + currentOrder.customer;
   document.getElementById('customer-line').textContent = orderVisible ? currentOrder.line : 'memory only. return to your contact for a repeat.';
   const icons = document.getElementById('order-icons');
   icons.innerHTML = '';
